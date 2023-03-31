@@ -1,10 +1,10 @@
-# tokenizer
+# Tokenizers
 
-Go bindings for the [HuggingFace Tokenizers library](https://github.com/huggingface/tokenizers).
+Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) library.
 
 ## Getting started
 ```go
-import "github.com/daulet/tokenizer"
+import "github.com/daulet/tokenizers"
 
 tk := tokenizer.FromFile("./data/bert-base-uncased.json")
 // release native resources
