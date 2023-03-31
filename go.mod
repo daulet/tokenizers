@@ -1,4 +1,4 @@
-module github.com/daulet/tokenizer
+module github.com/daulet/tokenizers
 
 go 1.18
 
