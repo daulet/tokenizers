@@ -1,6 +1,9 @@
-// NOTE: You could use https://michael-f-bryan.github.io/rust-ffi-guide/cbindgen.html to generate
-// this header automatically from your Rust code.  But for now, we'll just write it by hand.
 #include <stdint.h>
 
-uint32_t *encode(char *message, uint32_t *len);
-char *decode(uint32_t *message, uint32_t len);
+void *from_file(const char *config);
+
+void free_tokenizer(void *ptr);
+
+uint32_t *encode(void *ptr, const char *message, uint32_t *len);
+
+char *decode(void *ptr, const uint32_t *ids, uint32_t len);
