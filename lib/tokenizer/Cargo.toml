@@ -1,0 +1,11 @@
+[package]
+name = "tokenizer" 
+version = "0.9.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+libc = "0.2.140"
+tokenizers = "0.11.3"
