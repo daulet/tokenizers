@@ -3,3 +3,4 @@
 #include <stdint.h>
 
 uint32_t *encode(char *message, uint32_t *len);
+char *decode(uint32_t *message, uint32_t len);
