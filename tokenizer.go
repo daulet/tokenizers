@@ -39,7 +39,10 @@ func (t *Tokenizer) Encode(str string) []uint32 {
 	defer C.free(unsafe.Pointer(cStr))
 	var len C.uint
 	res := C.encode(t.tokenizer, cStr, &len)
-	defer C.free(unsafe.Pointer(res))
+	if len > 0 {
+		// can't dealloc nil
+		defer C.free(unsafe.Pointer(res))
+	}
 	slice := unsafe.Slice(res, len)
 
 	tokenIDs := make([]uint32, len)

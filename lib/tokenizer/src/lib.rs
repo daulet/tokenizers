@@ -33,12 +33,13 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, l
 
     let encoding = tokenizer.encode(message, false).expect("failed to encode input");
     let mut vec = encoding.get_ids().to_vec();
+    vec.shrink_to_fit();
     unsafe {
         *len = vec.len() as u32;
     }
-    let ptr = vec.as_mut_ptr();
+    let vec_ptr = vec.as_mut_ptr();
     std::mem::forget(vec);
-    ptr
+    vec_ptr
 }
 
 #[no_mangle]
