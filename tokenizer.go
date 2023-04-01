@@ -38,8 +38,6 @@ func (t *Tokenizer) Close() error {
 }
 
 func (t *Tokenizer) Encode(str string, addSpecialTokens bool) []uint32 {
-	config := C.CString("./lib/tokenizer/data/bert-base-uncased.json")
-	defer C.free(unsafe.Pointer(config))
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
 	var len C.uint
@@ -58,8 +56,6 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool) []uint32 {
 }
 
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
-	config := C.CString("./lib/tokenizer/data/bert-base-uncased.json")
-	defer C.free(unsafe.Pointer(config))
 	len := C.uint(len(tokenIDs))
 	res := C.decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len, C.bool(skipSpecialTokens))
 	defer C.free(unsafe.Pointer(res))
