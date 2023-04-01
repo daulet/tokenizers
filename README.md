@@ -2,14 +2,23 @@
 
 Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) library.
 
+## Installation
+```bash
+// TODO figure out distribution
+```
+
 ## Getting started
 ```go
 import "github.com/daulet/tokenizers"
 
-tk := tokenizer.FromFile("./data/bert-base-uncased.json")
+tk, err := tokenizers.FromFile("./data/bert-base-uncased.json")
+if err != nil {
+    return err
+}
 // release native resources
 defer tk.Close()
 fmt.Println(tk.Encode("brown fox jumps over the lazy dog"))
+// [2829 4419 14523 2058 1996 13971 3899]
 ```
 
 ## Benchmarks

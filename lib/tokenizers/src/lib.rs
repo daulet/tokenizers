@@ -1,5 +1,6 @@
 use std::ffi::CStr;
 use std::path::PathBuf;
+use std::ptr;
 use tokenizers::tokenizer::Tokenizer;
 
 #[no_mangle]
@@ -7,9 +8,15 @@ pub extern "C" fn from_file(config: *const libc::c_char) -> *mut libc::c_void {
     let config_cstr = unsafe { CStr::from_ptr(config) };
     let config = config_cstr.to_str().unwrap();
     let config = PathBuf::from(config);
-    let tokenizer = Tokenizer::from_file(config).expect("failed to load tokenizer");
-    let ptr = Box::into_raw(Box::new(tokenizer));
-    ptr.cast()
+    match Tokenizer::from_file(config) {
+        Ok(tokenizer) => {
+            let ptr = Box::into_raw(Box::new(tokenizer));
+            ptr.cast()
+        }
+        Err(_) => {
+            ptr::null_mut()
+        }
+    }
 }
 
 #[no_mangle]

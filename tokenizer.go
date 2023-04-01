@@ -21,10 +21,14 @@ type Tokenizer struct {
 
 var _ io.Closer = (*Tokenizer)(nil)
 
-func FromFile(path string) *Tokenizer {
+func FromFile(path string) (*Tokenizer, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
-	return &Tokenizer{tokenizer: C.from_file(cPath)}
+	tokenizer, err := C.from_file(cPath)
+	if err != nil {
+		return nil, err
+	}
+	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
 func (t *Tokenizer) Close() error {
