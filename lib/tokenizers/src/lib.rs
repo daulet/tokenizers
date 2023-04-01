@@ -62,3 +62,12 @@ pub extern "C" fn decode(ptr: *mut libc::c_void, ids: *const u32, len: u32) -> *
     let c_string = std::ffi::CString::new(string).unwrap();
     c_string.into_raw()
 }
+
+#[no_mangle]
+pub extern "C" fn vocab_size(ptr: *mut libc::c_void) -> u32 {
+    let tokenizer: &Tokenizer;
+    unsafe {
+        tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
+    }
+    tokenizer.get_vocab_size(true) as u32
+}

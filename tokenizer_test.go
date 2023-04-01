@@ -11,8 +11,6 @@ import (
 )
 
 // TODO test for leaks
-// TODO expose as an API
-const vocabSize = 30522
 
 func TestInvalidConfigPath(t *testing.T) {
 	_, err := tokenizers.FromFile("./non-existent.json")
@@ -35,6 +33,13 @@ func TestDecode(t *testing.T) {
 	assert.Equal(t, "brown fox jumps over the lazy dog", str)
 }
 
+func TestVocabSize(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer tk.Close()
+	assert.Equal(t, uint32(30522), tk.VocabSize())
+}
+
 func BenchmarkEncodeNTimes(b *testing.B) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(b, err)
@@ -53,7 +58,7 @@ func BenchmarkEncodeNChars(b *testing.B) {
 	defer tk.Close()
 	input := make([]rune, 0, b.N)
 	for i := 0; i < b.N; i++ {
-		input = append(input, rune(rand.Uint32()%vocabSize))
+		input = append(input, rune(rand.Uint32()%tk.VocabSize()))
 	}
 	str := string(input)
 	b.ResetTimer()
@@ -78,7 +83,7 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 	defer tk.Close()
 	input := make([]uint32, 0, b.N)
 	for i := 0; i < b.N; i++ {
-		input = append(input, rand.Uint32()%vocabSize)
+		input = append(input, rand.Uint32()%tk.VocabSize())
 	}
 	b.ResetTimer()
 	text := tk.Decode(input)

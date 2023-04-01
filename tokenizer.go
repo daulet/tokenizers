@@ -64,3 +64,7 @@ func (t *Tokenizer) Decode(tokenIDs []uint32) string {
 	defer C.free(unsafe.Pointer(res))
 	return C.GoString(res)
 }
+
+func (t *Tokenizer) VocabSize() uint32 {
+	return uint32(C.vocab_size(t.tokenizer))
+}
