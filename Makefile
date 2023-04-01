@@ -1,10 +1,10 @@
 build:
 	@cd lib && cargo build --release
-	@cp lib/target/release/libtokenizers.a lib/
+	@cp lib/target/release/libtokenizers.a .
 	@go build .
 
 test: build
 	@go test -v ./... -count=1
 
 clean:
-	rm -rf lib/libtokenizers.a lib/target
+	rm -rf libtokenizers.a lib/target
