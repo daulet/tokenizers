@@ -33,16 +33,17 @@ func FromFile(path string) (*Tokenizer, error) {
 
 func (t *Tokenizer) Close() error {
 	C.free_tokenizer(t.tokenizer)
+	t.tokenizer = nil
 	return nil
 }
 
-func (t *Tokenizer) Encode(str string) []uint32 {
+func (t *Tokenizer) Encode(str string, addSpecialTokens bool) []uint32 {
 	config := C.CString("./lib/tokenizer/data/bert-base-uncased.json")
 	defer C.free(unsafe.Pointer(config))
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
 	var len C.uint
-	res := C.encode(t.tokenizer, cStr, &len)
+	res := C.encode(t.tokenizer, cStr, &len, C.bool(addSpecialTokens))
 	if len > 0 {
 		// can't dealloc nil
 		defer C.free(unsafe.Pointer(res))
@@ -56,11 +57,11 @@ func (t *Tokenizer) Encode(str string) []uint32 {
 	return tokenIDs
 }
 
-func (t *Tokenizer) Decode(tokenIDs []uint32) string {
+func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
 	config := C.CString("./lib/tokenizer/data/bert-base-uncased.json")
 	defer C.free(unsafe.Pointer(config))
 	len := C.uint(len(tokenIDs))
-	res := C.decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len)
+	res := C.decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len, C.bool(skipSpecialTokens))
 	defer C.free(unsafe.Pointer(res))
 	return C.GoString(res)
 }

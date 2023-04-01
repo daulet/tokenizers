@@ -30,7 +30,7 @@ pub extern "C" fn free_tokenizer(ptr: *mut ::libc::c_void) {
 }
 
 #[no_mangle]
-pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, len: *mut u32) -> *mut u32 {
+pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, len: *mut u32, add_special_tokens: bool) -> *mut u32 {
     let tokenizer: &Tokenizer;
     unsafe {
         tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
@@ -38,7 +38,7 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, l
     let message_cstr = unsafe { CStr::from_ptr(message) };
     let message = message_cstr.to_str().unwrap();
 
-    let encoding = tokenizer.encode(message, false).expect("failed to encode input");
+    let encoding = tokenizer.encode(message, add_special_tokens).expect("failed to encode input");
     let mut vec = encoding.get_ids().to_vec();
     vec.shrink_to_fit();
     unsafe {
@@ -50,15 +50,14 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, l
 }
 
 #[no_mangle]
-pub extern "C" fn decode(ptr: *mut libc::c_void, ids: *const u32, len: u32) -> *mut libc::c_char {
+pub extern "C" fn decode(ptr: *mut libc::c_void, ids: *const u32, len: u32, skip_special_tokens: bool) -> *mut libc::c_char {
     let tokenizer: &Tokenizer;
     unsafe {
         tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
     }
     let ids_slice = unsafe { std::slice::from_raw_parts(ids, len as usize) };
 
-    // TODO parameterize special tokens
-    let string = tokenizer.decode(ids_slice.to_vec(), true).expect("failed to decode input");
+    let string = tokenizer.decode(ids_slice.to_vec(), skip_special_tokens).expect("failed to decode input");
     let c_string = std::ffi::CString::new(string).unwrap();
     c_string.into_raw()
 }

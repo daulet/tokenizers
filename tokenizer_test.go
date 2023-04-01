@@ -21,16 +21,74 @@ func TestEncode(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)
 	defer tk.Close()
-	tokens := tk.Encode("brown fox jumps over the lazy dog")
-	assert.Equal(t, []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, tokens)
+	tests := []struct {
+		name       string
+		str        string
+		addSpecial bool
+		want       []uint32
+	}{
+		{
+			name:       "without special tokens",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: false,
+			want:       []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+		},
+		{
+			name:       "with special tokens",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: true,
+			want:       []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestDecode(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)
 	defer tk.Close()
-	str := tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899})
-	assert.Equal(t, "brown fox jumps over the lazy dog", str)
+	tests := []struct {
+		name        string
+		tokens      []uint32
+		skipSpecial bool
+		want        string
+	}{
+		{
+			name:        "without special tokens, skip special tokens",
+			tokens:      []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+			skipSpecial: true,
+			want:        "brown fox jumps over the lazy dog",
+		},
+		{
+			name:        "with special tokens, skip special tokens",
+			tokens:      []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
+			skipSpecial: true,
+			want:        "brown fox jumps over the lazy dog",
+		},
+		{
+			name:        "without special tokens, don't skip special tokens",
+			tokens:      []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+			skipSpecial: false,
+			want:        "brown fox jumps over the lazy dog",
+		},
+		{
+			name:        "with special tokens, don't skip special tokens",
+			tokens:      []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
+			skipSpecial: false,
+			want:        "[CLS] brown fox jumps over the lazy dog [SEP]",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tk.Decode(tt.tokens, tt.skipSpecial)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestVocabSize(t *testing.T) {
@@ -47,7 +105,7 @@ func BenchmarkEncodeNTimes(b *testing.B) {
 	expected := []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tokens := tk.Encode("brown fox jumps over the lazy dog")
+		tokens := tk.Encode("brown fox jumps over the lazy dog", false)
 		assert.Equal(b, expected, tokens)
 	}
 }
@@ -62,7 +120,7 @@ func BenchmarkEncodeNChars(b *testing.B) {
 	}
 	str := string(input)
 	b.ResetTimer()
-	tokens := tk.Encode(str)
+	tokens := tk.Encode(str, false)
 	assert.Greater(b, len(tokens), 0)
 }
 
@@ -72,7 +130,7 @@ func BenchmarkDecodeNTimes(b *testing.B) {
 	defer tk.Close()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		str := tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899})
+		str := tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true)
 		assert.Equal(b, "brown fox jumps over the lazy dog", str)
 	}
 }
@@ -86,7 +144,7 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 		input = append(input, rand.Uint32()%tk.VocabSize())
 	}
 	b.ResetTimer()
-	text := tk.Decode(input)
+	text := tk.Decode(input, true)
 	// a token is one or more characters
 	assert.Greater(b, len(text), b.N)
 }
