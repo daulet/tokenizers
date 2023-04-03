@@ -1,6 +1,7 @@
 package tokenizers_test
 
 import (
+	_ "embed"
 	"math/rand"
 	"testing"
 
@@ -10,11 +11,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//go:embed test/data/bert-base-uncased.json
+var bertBaseUncased []byte
+
 // TODO test for leaks
 
 func TestInvalidConfigPath(t *testing.T) {
 	_, err := tokenizers.FromFile("./non-existent.json")
 	require.Error(t, err)
+}
+
+func TestEmbeddingConfig(t *testing.T) {
+	tk, err := tokenizers.FromBytes(bertBaseUncased)
+	require.NoError(t, err)
+	defer tk.Close()
+
+	tests := []struct {
+		name       string
+		str        string
+		addSpecial bool
+		want       []uint32
+	}{
+		{
+			name:       "without special tokens",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: false,
+			want:       []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+		},
+		{
+			name:       "with special tokens",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: true,
+			want:       []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestEncode(t *testing.T) {

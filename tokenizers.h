@@ -1,6 +1,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+void *from_bytes(const uint8_t *config, uint32_t len);
+
 void *from_file(const char *config);
 
 void free_tokenizer(void *ptr);

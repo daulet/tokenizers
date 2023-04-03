@@ -4,6 +4,20 @@ use std::ptr;
 use tokenizers::tokenizer::Tokenizer;
 
 #[no_mangle]
+pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut libc::c_void {
+    let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
+    match Tokenizer::from_bytes(bytes_slice) {
+        Ok(tokenizer) => {
+            let ptr = Box::into_raw(Box::new(tokenizer));
+            ptr.cast()
+        }
+        Err(_) => {
+            ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn from_file(config: *const libc::c_char) -> *mut libc::c_void {
     let config_cstr = unsafe { CStr::from_ptr(config) };
     let config = config_cstr.to_str().unwrap();
