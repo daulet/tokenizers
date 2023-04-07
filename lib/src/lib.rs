@@ -4,17 +4,10 @@ use std::ptr;
 use tokenizers::tokenizer::Tokenizer;
 
 #[no_mangle]
-pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut libc::c_void {
+pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
-    match Tokenizer::from_bytes(bytes_slice) {
-        Ok(tokenizer) => {
-            let ptr = Box::into_raw(Box::new(tokenizer));
-            ptr.cast()
-        }
-        Err(_) => {
-            ptr::null_mut()
-        }
-    }
+    let tokenizer = Tokenizer::from_bytes(bytes_slice).expect("failed to create tokenizer");
+    return Box::into_raw(Box::new(tokenizer));
 }
 
 #[no_mangle]

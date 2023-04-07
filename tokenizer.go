@@ -22,10 +22,7 @@ type Tokenizer struct {
 var _ io.Closer = (*Tokenizer)(nil)
 
 func FromBytes(data []byte) (*Tokenizer, error) {
-	tokenizer, err := C.from_bytes((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)))
-	if err != nil {
-		return nil, err
-	}
+	tokenizer := C.from_bytes((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)))
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 

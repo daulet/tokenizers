@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//go:embed test/data/bert-base-uncased.json
-var bertBaseUncased []byte
+//go:embed test/data/sentence-transformers-labse.json
+var embeddedBytes []byte
 
 // TODO test for leaks
 
@@ -22,7 +22,7 @@ func TestInvalidConfigPath(t *testing.T) {
 }
 
 func TestEmbeddingConfig(t *testing.T) {
-	tk, err := tokenizers.FromBytes(bertBaseUncased)
+	tk, err := tokenizers.FromBytes(embeddedBytes)
 	require.NoError(t, err)
 	defer tk.Close()
 
@@ -36,17 +36,18 @@ func TestEmbeddingConfig(t *testing.T) {
 			name:       "without special tokens",
 			str:        "brown fox jumps over the lazy dog",
 			addSpecial: false,
-			want:       []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+			want:       []uint32{0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4},
 		},
 		{
 			name:       "with special tokens",
 			str:        "brown fox jumps over the lazy dog",
 			addSpecial: true,
-			want:       []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
+			want:       []uint32{0x65, 0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4, 0x66},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			tk.Encode(tt.str, tt.addSpecial)
 			got := tk.Encode(tt.str, tt.addSpecial)
 			assert.Equal(t, tt.want, got)
 		})
