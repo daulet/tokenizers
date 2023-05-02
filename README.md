@@ -3,10 +3,13 @@
 Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) library.
 
 ## Installation
-```bash
-// TODO figure out distribution
-make build
-```
+
+`make build` or see [./example/Dockerfile](Dockerfile) for deployment example.
+
+### Using pre-built binaries
+
+* tokenizers.linux-arm64.tar.gz
+* tokenizers.linux-amd64.tar.gz
 
 ## Getting started
 
@@ -47,4 +50,11 @@ BenchmarkDecodeNTimes-10     	 7286056	      1657 ns/op	     112 B/op	       4 a
 BenchmarkDecodeNTokens-10    	65191378	     211.0 ns/op	       7 B/op	       0 allocs/op
 PASS
 ok  	github.com/daulet/tokenizers	126.681s
+```
+
+## Release
+
+```bash
+make release-linux-arm64
+make release-linux-amd64
 ```
