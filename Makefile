@@ -10,6 +10,8 @@ release-linux-%:
 	docker buildx build --platform linux/$* -f example/Dockerfile . -t tokenizers.linux-$*
 	mkdir -p release/linux-$*
 	docker run -v $(PWD)/release/linux-$*:/mnt --entrypoint cp tokenizers.linux-$* /workspace/libtokenizers.a /mnt/libtokenizers.a
+	mkdir -p release/output
+	tar -czf release/output/libtokenizers.linux-$*.tar.gz release/linux-$*/libtokenizers.a
 
 test: build
 	@go test -v ./... -count=1
