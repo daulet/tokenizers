@@ -8,8 +8,8 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 ### Using pre-built binaries
 
-* tokenizers.linux-arm64.tar.gz
-* tokenizers.linux-amd64.tar.gz
+* [linux-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-arm64.tar.gz)
+* [linux-amd64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-amd64.tar.gz)
 
 ## Getting started
 
