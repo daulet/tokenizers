@@ -28,12 +28,10 @@ pub extern "C" fn from_file(config: *const libc::c_char) -> *mut libc::c_void {
 
 #[no_mangle]
 pub extern "C" fn free_tokenizer(ptr: *mut ::libc::c_void) {
-    unsafe {
-        if ptr.is_null() {
-            return;
-        }
-        Box::from_raw(ptr.cast::<Tokenizer>());
+    if ptr.is_null() {
+        return;
     }
+    ptr.cast::<Tokenizer>();
 }
 
 #[no_mangle]
