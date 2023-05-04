@@ -3,6 +3,8 @@
 
 void *from_bytes(const uint8_t *config, uint32_t len);
 
+void *from_bytes_with_truncation(const uint8_t *config, uint32_t len, uint32_t max_len, uint8_t direction);
+
 void *from_file(const char *config);
 
 void free_tokenizer(void *ptr);

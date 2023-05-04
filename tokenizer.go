@@ -19,10 +19,22 @@ type Tokenizer struct {
 	tokenizer unsafe.Pointer
 }
 
+type TruncationDirection int
+
+const (
+	TruncationDirectionLeft TruncationDirection = iota
+	TruncationDirectionRight
+)
+
 var _ io.Closer = (*Tokenizer)(nil)
 
 func FromBytes(data []byte) (*Tokenizer, error) {
 	tokenizer := C.from_bytes((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)))
+	return &Tokenizer{tokenizer: tokenizer}, nil
+}
+
+func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection) (*Tokenizer, error) {
+	tokenizer := C.from_bytes_with_truncation((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.uint(maxLen), C.uchar(dir))
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 

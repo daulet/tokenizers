@@ -85,6 +85,61 @@ func TestEncode(t *testing.T) {
 	}
 }
 
+func TestEncodeWithTruncation(t *testing.T) {
+	tests := []struct {
+		name       string
+		str        string
+		addSpecial bool
+		maxLen     int
+		dir        tokenizers.TruncationDirection
+		want       []uint32
+	}{
+		{
+			name:       "without special tokens, left truncation",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: false,
+			maxLen:     5,
+			dir:        tokenizers.TruncationDirectionLeft,
+			want:       []uint32{0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4},
+		},
+		{
+			name:       "without special tokens, right truncation",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: false,
+			maxLen:     5,
+			dir:        tokenizers.TruncationDirectionRight,
+			want:       []uint32{0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89},
+		},
+		{
+			name:       "with special tokens, left truncation",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: true,
+			maxLen:     5,
+			dir:        tokenizers.TruncationDirectionLeft,
+			want:       []uint32{0x65, 0x3a89, 0x35fc3, 0x57b4, 0x66},
+		},
+		{
+			name:       "with special tokens, right truncation",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: true,
+			maxLen:     5,
+			dir:        tokenizers.TruncationDirectionRight,
+			want:       []uint32{0x65, 0xca3f, 0x2f304, 0x5185b, 0x66},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tk, err := tokenizers.FromBytesWithTruncation(embeddedBytes, uint32(tt.maxLen), tt.dir)
+			require.NoError(t, err)
+			defer tk.Close()
+
+			tk.Encode(tt.str, tt.addSpecial)
+			got := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestDecode(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)
