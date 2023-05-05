@@ -4,15 +4,20 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 ## Installation
 
-`make build` or see [./example/Dockerfile](Dockerfile) for deployment example.
+`make build` to build `libtokenizers.a` that you need to run your application that uses bindings.
 
 ### Using pre-built binaries
 
+Build your Go application using pre-built native binaries: `docker build --platform=linux/amd64 -f example/Dockerfile .`
+
+Available binaries:
 * [darwin-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.darwin-arm64.tar.gz)
 * [linux-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-arm64.tar.gz)
 * [linux-amd64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-amd64.tar.gz)
 
 ## Getting started
+
+TLDR: [working example](example/main.go).
 
 Load a tokenizer from a JSON config:
 ```go
@@ -51,11 +56,4 @@ BenchmarkDecodeNTimes-10     	 7286056	      1657 ns/op	     112 B/op	       4 a
 BenchmarkDecodeNTokens-10    	65191378	     211.0 ns/op	       7 B/op	       0 allocs/op
 PASS
 ok  	github.com/daulet/tokenizers	126.681s
-```
-
-## Release
-
-```bash
-make release-linux-arm64
-make release-linux-amd64
 ```
