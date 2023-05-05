@@ -3,7 +3,7 @@ package tokenizers
 // TODO packaging: how do we build the rust lib for distribution?
 
 /*
-#cgo LDFLAGS: libtokenizers.a -ldl -lstdc++
+#cgo LDFLAGS: ${SRCDIR}/libtokenizers.a -ldl -lstdc++
 #include <stdlib.h>
 #include "tokenizers.h"
 */
