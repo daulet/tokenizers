@@ -73,6 +73,9 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool) []uint32 {
 }
 
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
+	if len(tokenIDs) == 0 {
+		return ""
+	}
 	len := C.uint(len(tokenIDs))
 	res := C.decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len, C.bool(skipSpecialTokens))
 	defer C.free(unsafe.Pointer(res))

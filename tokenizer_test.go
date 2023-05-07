@@ -76,6 +76,18 @@ func TestEncode(t *testing.T) {
 			addSpecial: true,
 			want:       []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
 		},
+		{
+			name:       "empty string",
+			str:        "",
+			addSpecial: false,
+			want:       []uint32{},
+		},
+		{
+			name:       "empty string with special tokens",
+			str:        "",
+			addSpecial: false,
+			want:       []uint32{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -173,6 +185,12 @@ func TestDecode(t *testing.T) {
 			tokens:      []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
 			skipSpecial: false,
 			want:        "[CLS] brown fox jumps over the lazy dog [SEP]",
+		},
+		{
+			name:        "no tokens",
+			tokens:      []uint32{},
+			skipSpecial: false,
+			want:        "",
 		},
 	}
 	for _, tt := range tests {
