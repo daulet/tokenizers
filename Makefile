@@ -15,6 +15,15 @@ release-darwin-arm64:
 	mkdir -p artifacts/all
 	cp artifacts/darwin-arm64/libtokenizers.darwin-arm64.tar.gz artifacts/all/libtokenizers.darwin-arm64.tar.gz
 
+release-darwin-x86_64:
+	cd lib && cargo build --release --target x86_64-apple-darwin
+	mkdir -p artifacts/darwin-x86_64
+	cp lib/target/x86_64-apple-darwin/release/libtokenizers.a artifacts/darwin-x86_64/libtokenizers.a
+	cd artifacts/darwin-x86_64 && \
+		tar -czf libtokenizers.darwin-x86_64.tar.gz libtokenizers.a
+	mkdir -p artifacts/all
+	cp artifacts/darwin-x86_64/libtokenizers.darwin-x86_64.tar.gz artifacts/all/libtokenizers.darwin-x86_64.tar.gz
+
 release-linux-%:
 	docker buildx build --platform linux/$* -f example/Dockerfile . -t tokenizers.linux-$*
 	mkdir -p artifacts/linux-$*
