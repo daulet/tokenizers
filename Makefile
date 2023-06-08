@@ -9,29 +9,18 @@ build-example:
 release-darwin-arm64:
 	cd lib && cargo build --release --target aarch64-apple-darwin
 	mkdir -p artifacts/darwin-arm64
-	cp lib/target/aarch64-apple-darwin/release/libtokenizers.a artifacts/darwin-arm64/libtokenizers.a
-	cd artifacts/darwin-arm64 && \
-		tar -czf libtokenizers.darwin-arm64.tar.gz libtokenizers.a
-	mkdir -p artifacts/all
-	cp artifacts/darwin-arm64/libtokenizers.darwin-arm64.tar.gz artifacts/all/libtokenizers.darwin-arm64.tar.gz
+	mv lib/target/aarch64-apple-darwin/release/libtokenizers.a libtokenizers-darwin-arm64.a
 
 release-darwin-x86_64:
 	cd lib && cargo build --release --target x86_64-apple-darwin
 	mkdir -p artifacts/darwin-x86_64
-	cp lib/target/x86_64-apple-darwin/release/libtokenizers.a artifacts/darwin-x86_64/libtokenizers.a
-	cd artifacts/darwin-x86_64 && \
-		tar -czf libtokenizers.darwin-x86_64.tar.gz libtokenizers.a
-	mkdir -p artifacts/all
-	cp artifacts/darwin-x86_64/libtokenizers.darwin-x86_64.tar.gz artifacts/all/libtokenizers.darwin-x86_64.tar.gz
+	mv lib/target/x86_64-apple-darwin/release/libtokenizers.a libtokenizers-darwin-x86_64.a
 
 release-linux-%:
-	docker buildx build --platform linux/$* -f example/Dockerfile . -t tokenizers.linux-$*
+	docker buildx build --platform linux/$* -f release/Dockerfile . -t tokenizers.linux-$*
 	mkdir -p artifacts/linux-$*
 	docker run -v $(PWD)/release/linux-$*:/mnt --entrypoint cp tokenizers.linux-$* /workspace/libtokenizers.a /mnt/libtokenizers.a
-	cd artifacts/linux-$* && \
-		tar -czf libtokenizers.linux-$*.tar.gz libtokenizers.a
-	mkdir -p artifacts/all
-	cp artifacts/linux-$*/libtokenizers.linux-$*.tar.gz artifacts/all/libtokenizers.linux-$*.tar.gz
+	mv libtokenizers.a libtokenizers-linux-$*.a
 
 release: release-darwin-arm64 release-linux-amd64 release-linux-arm64 release-linux-x86_64
 
