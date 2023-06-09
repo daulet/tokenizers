@@ -17,6 +17,9 @@ Available binaries:
 Set `LIBRARY_PATH` environment variable to the location of `libtokenizers.a` directory.
 
 ```sh
+# $ ls ./include/
+# libtokenizers.a
+#
 export LIBRARY_PATH=./include/
 ```
 
