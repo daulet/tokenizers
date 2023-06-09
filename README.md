@@ -4,16 +4,21 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 ## Installation
 
-`make build` to build `libtokenizers.a` that you need to run your application that uses bindings.
+`make build` to build `libtokenizers.a` binary that you need to run your application.
 
-### Using pre-built binaries
-
-Build your Go application using pre-built native binaries: `docker build --platform=linux/amd64 -f example/Dockerfile .`
+You can also use pre-built binaries.
 
 Available binaries:
 * [darwin-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.darwin-arm64.tar.gz)
 * [linux-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-arm64.tar.gz)
 * [linux-amd64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-amd64.tar.gz)
+
+
+Set `LIBRARY_PATH` environment variable to the location of `libtokenizers.a` directory.
+
+```sh
+export LIBRARY_PATH=./include/
+```
 
 ## Getting started
 
@@ -56,4 +61,13 @@ BenchmarkDecodeNTimes-10     	 7286056	      1657 ns/op	     112 B/op	       4 a
 BenchmarkDecodeNTokens-10    	65191378	     211.0 ns/op	       7 B/op	       0 allocs/op
 PASS
 ok  	github.com/daulet/tokenizers	126.681s
+```
+
+
+### Example
+
+Check out the `example` folder where it shows how to use the pre-build binaries to run a application.
+
+```sh
+docker build --platform=linux/amd64 -f example/Dockerfile .`
 ```

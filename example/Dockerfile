@@ -4,6 +4,7 @@ FROM golang:1.19 as builder-go
 ARG TARGETPLATFORM
 WORKDIR /workspace
 RUN curl -fsSL https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.$(echo ${TARGETPLATFORM} | tr / -).tar.gz | tar xvz
+ENV LIBRARY_PATH /workspace
 COPY ./example .
 COPY ./test/data ./test/data
 RUN --mount=type=cache,target=/root/.cache/go-build \
