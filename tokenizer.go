@@ -5,7 +5,7 @@ package tokenizers
 // #cgo LDFLAGS: ${SRCDIR}/libtokenizers-${GOOS}-${GOARCH}.a -ldl -lstdc++
 
 /*
-#cgo LDFLAGS: ${SRCDIR}/libtokenizers-linux-amd64.a -ldl -lstdc++
+#cgo LDFLAGS: ${SRCDIR}/libtokenizers-darwin-arm64.a -ldl -lstdc++
 #include <stdlib.h>
 #include "tokenizers.h"
 */
