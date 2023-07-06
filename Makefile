@@ -6,23 +6,14 @@ build:
 build-example:
 	@docker build -f ./example/Dockerfile . -t tokenizers-example
 
-release-darwin-arm64:
-	cd lib && cargo build --release --target aarch64-apple-darwin
-	mkdir -p artifacts/darwin-arm64
-	cp lib/target/aarch64-apple-darwin/release/libtokenizers.a artifacts/darwin-arm64/libtokenizers.a
-	cd artifacts/darwin-arm64 && \
-		tar -czf libtokenizers.darwin-arm64.tar.gz libtokenizers.a
+release-darwin-%:
+	cd lib && cargo build --release --target $*-apple-darwin
+	mkdir -p artifacts/darwin-$*
+	cp lib/target/$*-apple-darwin/release/libtokenizers.a artifacts/darwin-$*/libtokenizers.a
+	cd artifacts/darwin-$* && \
+		tar -czf libtokenizers.darwin-$*.tar.gz libtokenizers.a
 	mkdir -p artifacts/all
-	cp artifacts/darwin-arm64/libtokenizers.darwin-arm64.tar.gz artifacts/all/libtokenizers.darwin-arm64.tar.gz
-
-release-darwin-x86_64:
-	cd lib && cargo build --release --target x86_64-apple-darwin
-	mkdir -p artifacts/darwin-x86_64
-	cp lib/target/x86_64-apple-darwin/release/libtokenizers.a artifacts/darwin-x86_64/libtokenizers.a
-	cd artifacts/darwin-x86_64 && \
-		tar -czf libtokenizers.darwin-x86_64.tar.gz libtokenizers.a
-	mkdir -p artifacts/all
-	cp artifacts/darwin-x86_64/libtokenizers.darwin-x86_64.tar.gz artifacts/all/libtokenizers.darwin-x86_64.tar.gz
+	cp artifacts/darwin-$*/libtokenizers.darwin-$*.tar.gz artifacts/all/libtokenizers.darwin-$*.tar.gz
 
 release-linux-%:
 	docker buildx build --platform linux/$* -f example/Dockerfile . -t tokenizers.linux-$*
@@ -33,7 +24,10 @@ release-linux-%:
 	mkdir -p artifacts/all
 	cp artifacts/linux-$*/libtokenizers.linux-$*.tar.gz artifacts/all/libtokenizers.linux-$*.tar.gz
 
-release: release-darwin-arm64 release-linux-amd64 release-linux-arm64 release-linux-x86_64
+release: release-darwin-aarch64 release-darwin-x86_64 release-linux-arm64 release-linux-x86_64
+	cp artifacts/all/libtokenizers.darwin-aarch64.tar.gz artifacts/all/libtokenizers.darwin-arm64.tar.gz
+	cp artifacts/all/libtokenizers.linux-arm64.tar.gz artifacts/all/libtokenizers.linux-aarch64.tar.gz
+	cp artifacts/all/libtokenizers.linux-x86_64.tar.gz artifacts/all/libtokenizers.linux-amd64.tar.gz
 
 test: build
 	@go test -v ./... -count=1
