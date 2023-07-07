@@ -30,26 +30,30 @@ func TestEmbeddingConfig(t *testing.T) {
 		name       string
 		str        string
 		addSpecial bool
-		want       []uint32
+		wantIDs    []uint32
+		wantTokens []string
 	}{
 		{
 			name:       "without special tokens",
 			str:        "brown fox jumps over the lazy dog",
 			addSpecial: false,
-			want:       []uint32{0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4},
+			wantIDs:    []uint32{0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4},
+			wantTokens: []string{"brown", "fox", "jumps", "over", "the", "lazy", "dog"},
 		},
 		{
 			name:       "with special tokens",
 			str:        "brown fox jumps over the lazy dog",
 			addSpecial: true,
-			want:       []uint32{0x65, 0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4, 0x66},
+			wantIDs:    []uint32{0x65, 0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4, 0x66},
+			wantTokens: []string{"[CLS]", "brown", "fox", "jumps", "over", "the", "lazy", "dog", "[SEP]"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tk.Encode(tt.str, tt.addSpecial)
-			got := tk.Encode(tt.str, tt.addSpecial)
-			assert.Equal(t, tt.want, got)
+			gotIDs, gotTokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, gotIDs)
+			assert.Equal(t, tt.wantTokens, gotTokens)
 		})
 	}
 }
@@ -62,37 +66,39 @@ func TestEncode(t *testing.T) {
 		name       string
 		str        string
 		addSpecial bool
-		want       []uint32
+		wantIDs    []uint32
+		wantTokens []string
 	}{
 		{
 			name:       "without special tokens",
 			str:        "brown fox jumps over the lazy dog",
 			addSpecial: false,
-			want:       []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+			wantIDs:    []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+			wantTokens: []string{"brown", "fox", "jumps", "over", "the", "lazy", "dog"},
 		},
 		{
 			name:       "with special tokens",
 			str:        "brown fox jumps over the lazy dog",
 			addSpecial: true,
-			want:       []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
+			wantIDs:    []uint32{101, 2829, 4419, 14523, 2058, 1996, 13971, 3899, 102},
+			wantTokens: []string{"[CLS]", "brown", "fox", "jumps", "over", "the", "lazy", "dog", "[SEP]"},
 		},
 		{
 			name:       "empty string",
 			str:        "",
 			addSpecial: false,
-			want:       []uint32{},
 		},
 		{
 			name:       "empty string with special tokens",
 			str:        "",
 			addSpecial: false,
-			want:       []uint32{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tk.Encode(tt.str, tt.addSpecial)
-			assert.Equal(t, tt.want, got)
+			gotIDs, gotTokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, gotIDs)
+			assert.Equal(t, tt.wantTokens, gotTokens)
 		})
 	}
 }
@@ -104,7 +110,8 @@ func TestEncodeWithTruncation(t *testing.T) {
 		addSpecial bool
 		maxLen     int
 		dir        tokenizers.TruncationDirection
-		want       []uint32
+		wantIDs    []uint32
+		wantTokens []string
 	}{
 		{
 			name:       "without special tokens, left truncation",
@@ -112,7 +119,8 @@ func TestEncodeWithTruncation(t *testing.T) {
 			addSpecial: false,
 			maxLen:     5,
 			dir:        tokenizers.TruncationDirectionLeft,
-			want:       []uint32{0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4},
+			wantIDs:    []uint32{0x5185b, 0x3c54, 0x3a89, 0x35fc3, 0x57b4},
+			wantTokens: []string{"jumps", "over", "the", "lazy", "dog"},
 		},
 		{
 			name:       "without special tokens, right truncation",
@@ -120,7 +128,8 @@ func TestEncodeWithTruncation(t *testing.T) {
 			addSpecial: false,
 			maxLen:     5,
 			dir:        tokenizers.TruncationDirectionRight,
-			want:       []uint32{0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89},
+			wantIDs:    []uint32{0xca3f, 0x2f304, 0x5185b, 0x3c54, 0x3a89},
+			wantTokens: []string{"brown", "fox", "jumps", "over", "the"},
 		},
 		{
 			name:       "with special tokens, left truncation",
@@ -128,7 +137,8 @@ func TestEncodeWithTruncation(t *testing.T) {
 			addSpecial: true,
 			maxLen:     5,
 			dir:        tokenizers.TruncationDirectionLeft,
-			want:       []uint32{0x65, 0x3a89, 0x35fc3, 0x57b4, 0x66},
+			wantIDs:    []uint32{0x65, 0x3a89, 0x35fc3, 0x57b4, 0x66},
+			wantTokens: []string{"[CLS]", "the", "lazy", "dog", "[SEP]"},
 		},
 		{
 			name:       "with special tokens, right truncation",
@@ -136,7 +146,8 @@ func TestEncodeWithTruncation(t *testing.T) {
 			addSpecial: true,
 			maxLen:     5,
 			dir:        tokenizers.TruncationDirectionRight,
-			want:       []uint32{0x65, 0xca3f, 0x2f304, 0x5185b, 0x66},
+			wantIDs:    []uint32{0x65, 0xca3f, 0x2f304, 0x5185b, 0x66},
+			wantTokens: []string{"[CLS]", "brown", "fox", "jumps", "[SEP]"},
 		},
 	}
 	for _, tt := range tests {
@@ -146,8 +157,9 @@ func TestEncodeWithTruncation(t *testing.T) {
 			defer tk.Close()
 
 			tk.Encode(tt.str, tt.addSpecial)
-			got := tk.Encode(tt.str, tt.addSpecial)
-			assert.Equal(t, tt.want, got)
+			gotIDs, gotTokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, gotIDs)
+			assert.Equal(t, tt.wantTokens, gotTokens)
 		})
 	}
 }
@@ -215,7 +227,7 @@ func BenchmarkEncodeNTimes(b *testing.B) {
 	expected := []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tokens := tk.Encode("brown fox jumps over the lazy dog", false)
+		tokens, _ := tk.Encode("brown fox jumps over the lazy dog", false)
 		assert.Equal(b, expected, tokens)
 	}
 }
@@ -230,7 +242,7 @@ func BenchmarkEncodeNChars(b *testing.B) {
 	}
 	str := string(input)
 	b.ResetTimer()
-	tokens := tk.Encode(str, false)
+	tokens, _ := tk.Encode(str, false)
 	assert.Greater(b, len(tokens), 0)
 }
 

@@ -54,22 +54,27 @@ func (t *Tokenizer) Close() error {
 	return nil
 }
 
-func (t *Tokenizer) Encode(str string, addSpecialTokens bool) []uint32 {
+func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string) {
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
-	var len C.uint
-	res := C.encode(t.tokenizer, cStr, &len, C.bool(addSpecialTokens))
-	if len > 0 {
-		// can't dealloc nil
-		defer C.free(unsafe.Pointer(res))
+	res := C.encode(t.tokenizer, cStr, C.bool(addSpecialTokens))
+	len := int(res.len)
+	if len == 0 {
+		return nil, nil
 	}
-	slice := unsafe.Slice(res, len)
+	defer C.free_buffer(res)
 
+	ids := unsafe.Slice(res.ids, len)
 	tokenIDs := make([]uint32, len)
-	for i, v := range slice {
+	for i, v := range ids {
 		tokenIDs[i] = uint32(v)
 	}
-	return tokenIDs
+
+	tokens := make([]string, len)
+	for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
+		tokens[i] = C.GoString(s)
+	}
+	return tokenIDs, tokens
 }
 
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
@@ -78,7 +83,7 @@ func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
 	}
 	len := C.uint(len(tokenIDs))
 	res := C.decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len, C.bool(skipSpecialTokens))
-	defer C.free(unsafe.Pointer(res))
+	defer C.free_string(res)
 	return C.GoString(res)
 }
 

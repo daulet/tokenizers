@@ -3,6 +3,13 @@ use std::path::PathBuf;
 use std::ptr;
 use tokenizers::tokenizer::Tokenizer;
 
+#[repr(C)]
+pub struct Buffer {
+    ids: *mut u32,
+    tokens: *mut *mut libc::c_char,
+    len: usize,
+}
+
 #[no_mangle]
 pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
@@ -44,15 +51,7 @@ pub extern "C" fn from_file(config: *const libc::c_char) -> *mut libc::c_void {
 }
 
 #[no_mangle]
-pub extern "C" fn free_tokenizer(ptr: *mut ::libc::c_void) {
-    if ptr.is_null() {
-        return;
-    }
-    ptr.cast::<Tokenizer>();
-}
-
-#[no_mangle]
-pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, len: *mut u32, add_special_tokens: bool) -> *mut u32 {
+pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, add_special_tokens: bool) -> Buffer {
     let tokenizer: &Tokenizer;
     unsafe {
         tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
@@ -61,14 +60,23 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, l
     let message = message_cstr.to_str().unwrap();
 
     let encoding = tokenizer.encode(message, add_special_tokens).expect("failed to encode input");
-    let mut vec = encoding.get_ids().to_vec();
-    vec.shrink_to_fit();
-    unsafe {
-        *len = vec.len() as u32;
-    }
-    let vec_ptr = vec.as_mut_ptr();
-    std::mem::forget(vec);
-    vec_ptr
+    let mut vec_ids = encoding.get_ids().to_vec();
+    let mut vec_tokens = encoding.get_tokens()
+        .to_vec().into_iter()
+        .map(|s| std::ffi::CString::new(s).unwrap().into_raw())
+        .collect::<Vec<_>>();
+
+    vec_ids.shrink_to_fit();
+    vec_tokens.shrink_to_fit();
+    
+    let ids = vec_ids.as_mut_ptr();
+    let tokens = vec_tokens.as_mut_ptr();
+    let len = vec_ids.len();
+
+    std::mem::forget(vec_ids);
+    std::mem::forget(vec_tokens);
+
+    Buffer { ids, tokens, len }
 }
 
 #[no_mangle]
@@ -91,4 +99,36 @@ pub extern "C" fn vocab_size(ptr: *mut libc::c_void) -> u32 {
         tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
     }
     tokenizer.get_vocab_size(true) as u32
+}
+
+#[no_mangle]
+pub extern "C" fn free_tokenizer(ptr: *mut ::libc::c_void) {
+    if ptr.is_null() {
+        return;
+    }
+    ptr.cast::<Tokenizer>();
+}
+
+#[no_mangle]
+pub extern "C" fn free_buffer(buf: Buffer) {
+    if buf.ids.is_null() {
+        return;
+    }
+    unsafe {
+        Vec::from_raw_parts(buf.ids, buf.len, buf.len);
+        let strings = Vec::from_raw_parts(buf.tokens, buf.len, buf.len);
+        for s in strings {
+            drop(std::ffi::CString::from_raw(s));
+        }   
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn free_string(ptr: *mut libc::c_char) {
+    if ptr.is_null() {
+        return;
+    }
+    unsafe {
+        drop(std::ffi::CString::from_raw(ptr));
+    }
 }
