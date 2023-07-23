@@ -6,7 +6,10 @@ use tokenizers::tokenizer::Tokenizer;
 #[repr(C)]
 pub struct Buffer {
     ids: *mut u32,
+    type_ids: *mut u32,
     tokens: *mut *mut libc::c_char,
+    special_tokens_mask: *mut u32,
+    attention_mask: *mut u32,
     len: usize,
 }
 
@@ -61,22 +64,34 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, a
 
     let encoding = tokenizer.encode(message, add_special_tokens).expect("failed to encode input");
     let mut vec_ids = encoding.get_ids().to_vec();
+    let mut vec_type_ids = encoding.get_type_ids().to_vec();
+    let mut vec_special_tokens_mask = encoding.get_special_tokens_mask().to_vec();
+    let mut vec_attention_mask = encoding.get_attention_mask().to_vec();
     let mut vec_tokens = encoding.get_tokens()
         .to_vec().into_iter()
         .map(|s| std::ffi::CString::new(s).unwrap().into_raw())
         .collect::<Vec<_>>();
 
     vec_ids.shrink_to_fit();
+    vec_type_ids.shrink_to_fit();
+    vec_attention_mask.shrink_to_fit();
+    vec_special_tokens_mask.shrink_to_fit();
     vec_tokens.shrink_to_fit();
     
     let ids = vec_ids.as_mut_ptr();
+    let type_ids = vec_type_ids.as_mut_ptr();
+    let special_tokens_mask = vec_special_tokens_mask.as_mut_ptr();
+    let attention_mask = vec_attention_mask.as_mut_ptr();
     let tokens = vec_tokens.as_mut_ptr();
     let len = vec_ids.len();
 
     std::mem::forget(vec_ids);
+    std::mem::forget(vec_type_ids);
+    std::mem::forget(vec_special_tokens_mask);
+    std::mem::forget(vec_attention_mask);
     std::mem::forget(vec_tokens);
 
-    Buffer { ids, tokens, len }
+    Buffer { ids, type_ids, special_tokens_mask, attention_mask, tokens, len }
 }
 
 #[no_mangle]

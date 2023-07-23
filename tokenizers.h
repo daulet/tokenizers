@@ -3,7 +3,10 @@
 
 struct Buffer {
   uint32_t *ids;
+  uint32_t *type_ids;
   char *tokens;
+  uint32_t *special_tokens_mask;
+  uint32_t *attention_mask;
   uint32_t len;
 };
 

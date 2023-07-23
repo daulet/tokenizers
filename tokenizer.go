@@ -54,27 +54,49 @@ func (t *Tokenizer) Close() error {
 	return nil
 }
 
-func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string) {
+type Encoding struct {
+	IDs               []uint32
+	TypeIDs           []uint32
+	SpecialTokensMask []uint32
+	AttentionMask     []uint32
+	Tokens            []string
+}
+
+func uin32VecToSlice(arrPtr *C.uint, len int) []uint32 {
+	arr := unsafe.Slice(arrPtr, len)
+	slice := make([]uint32, len)
+	for i, v := range arr {
+		slice[i] = uint32(v)
+	}
+	return slice
+}
+
+func (t *Tokenizer) Encode(str string, addSpecialTokens bool) Encoding {
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
 	res := C.encode(t.tokenizer, cStr, C.bool(addSpecialTokens))
 	len := int(res.len)
 	if len == 0 {
-		return nil, nil
+		return Encoding{}
 	}
 	defer C.free_buffer(res)
 
-	ids := unsafe.Slice(res.ids, len)
-	tokenIDs := make([]uint32, len)
-	for i, v := range ids {
-		tokenIDs[i] = uint32(v)
-	}
+	ids := uin32VecToSlice(res.ids, len)
+	typeIDs := uin32VecToSlice(res.type_ids, len)
+	specialTokensMask := uin32VecToSlice(res.special_tokens_mask, len)
+	attentionMask := uin32VecToSlice(res.attention_mask, len)
 
 	tokens := make([]string, len)
 	for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
 		tokens[i] = C.GoString(s)
 	}
-	return tokenIDs, tokens
+	return Encoding{
+		IDs:               ids,
+		TypeIDs:           typeIDs,
+		Tokens:            tokens,
+		SpecialTokensMask: specialTokensMask,
+		AttentionMask:     attentionMask,
+	}
 }
 
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
