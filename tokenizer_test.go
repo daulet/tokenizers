@@ -73,7 +73,7 @@ func TestEmbeddingConfig(t *testing.T) {
 	}
 }
 
-func TestEncode(t *testing.T) {
+func TestEncodeWithAndWithoutOptions(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)
 	defer tk.Close()
@@ -130,6 +130,71 @@ func TestEncode(t *testing.T) {
 			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
 			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
 			assert.Equal(t, tt.wantTokens, tokens, "wrong tokens")
+		})
+	}
+}
+
+func TestEncodeOptions(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer tk.Close()
+	tests := []struct {
+		name                  string
+		str                   string
+		addSpecial            bool
+		wantIDs               []uint32
+		wantTypeIDs           []uint32
+		wantTokens            []string
+		wantSpecialTokensMask []uint32
+		wantAttentionMask     []uint32
+	}{
+		{
+			name:                  "without special tokens",
+			str:                   "brown fox jumps over the lazy dog",
+			addSpecial:            false,
+			wantIDs:               []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+			wantTypeIDs:           []uint32{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+			wantTokens:            []string{"brown", "fox", "jumps", "over", "the", "lazy", "dog"},
+			wantSpecialTokensMask: []uint32{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+			wantAttentionMask:     []uint32{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoding := tk.EncodeWithOptions(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
+			assert.Equal(t, []uint32(nil), encoding.TypeIDs, "wrong type ids")
+			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
+			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
+			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+
+			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnTokens())
+			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
+			assert.Equal(t, []uint32(nil), encoding.TypeIDs, "wrong type ids")
+			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
+			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
+			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+
+			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnTypeIDs())
+			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
+			assert.Equal(t, tt.wantTypeIDs, encoding.TypeIDs, "wrong type ids")
+			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
+			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
+			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+
+			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnSpecialTokensMask())
+			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
+			assert.Equal(t, []uint32(nil), encoding.TypeIDs, "wrong type ids")
+			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
+			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
+			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+
+			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnAttentionMask())
+			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
+			assert.Equal(t, []uint32(nil), encoding.TypeIDs, "wrong type ids")
+			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
+			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
+			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
 		})
 	}
 }

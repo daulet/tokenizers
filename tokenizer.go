@@ -121,6 +121,30 @@ func WithReturnAllAttributes() EncodeOption {
 	}
 }
 
+func WithReturnTypeIDs() EncodeOption {
+	return func(eo *EncodeOptions) {
+		eo.ReturnTypeIDs = CBool(true)
+	}
+}
+
+func WithReturnSpecialTokensMask() EncodeOption {
+	return func(eo *EncodeOptions) {
+		eo.ReturnSpecialTokensMask = CBool(true)
+	}
+}
+
+func WithReturnTokens() EncodeOption {
+	return func(eo *EncodeOptions) {
+		eo.ReturnTokens = CBool(true)
+	}
+}
+
+func WithReturnAttentionMask() EncodeOption {
+	return func(eo *EncodeOptions) {
+		eo.ReturnAttentionMask = CBool(true)
+	}
+}
+
 func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ...EncodeOption) Encoding {
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
