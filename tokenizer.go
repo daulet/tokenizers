@@ -62,7 +62,18 @@ type Encoding struct {
 	Tokens            []string
 }
 
-func uin32VecToSlice(arrPtr *C.uint, len int) []uint32 {
+type EncodeOptions struct {
+	AddSpecialTokens C.bool
+
+	ReturnTypeIDs           C.bool
+	ReturnTokens            C.bool
+	ReturnSpecialTokensMask C.bool
+	ReturnAttentionMask     C.bool
+}
+
+type EncodeOption func(eo *EncodeOptions)
+
+func uintVecToSlice(arrPtr *C.uint, len int) []uint32 {
 	arr := unsafe.Slice(arrPtr, len)
 	slice := make([]uint32, len)
 	for i, v := range arr {
@@ -71,32 +82,87 @@ func uin32VecToSlice(arrPtr *C.uint, len int) []uint32 {
 	return slice
 }
 
-func (t *Tokenizer) Encode(str string, addSpecialTokens bool) Encoding {
+func CBool(b bool) C.bool {
+	return C.bool(b)
+}
+
+func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string) {
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
-	res := C.encode(t.tokenizer, cStr, C.bool(addSpecialTokens))
+	options := EncodeOptions{
+		AddSpecialTokens: CBool(addSpecialTokens),
+		ReturnTokens:     CBool(true),
+	}
+	res := C.encode(t.tokenizer, cStr, (*C.struct_EncodeOptions)(unsafe.Pointer(&options)))
+	len := int(res.len)
+	if len == 0 {
+		return nil, nil
+	}
+	defer C.free_buffer(res)
+
+	ids := uintVecToSlice(res.ids, len)
+
+	var tokens []string
+	if res.tokens != nil {
+		tokens = make([]string, len)
+		for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
+			tokens[i] = C.GoString(s)
+		}
+	}
+	return ids, tokens
+}
+
+func WithReturnAllAttributes() EncodeOption {
+	return func(eo *EncodeOptions) {
+		eo.ReturnTypeIDs = CBool(true)
+		eo.ReturnSpecialTokensMask = CBool(true)
+		eo.ReturnAttentionMask = CBool(true)
+		eo.ReturnTokens = CBool(true)
+	}
+}
+
+func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ...EncodeOption) Encoding {
+	cStr := C.CString(str)
+	defer C.free(unsafe.Pointer(cStr))
+
+	encOptions := EncodeOptions{
+		AddSpecialTokens: CBool(addSpecialTokens),
+	}
+	for _, opt := range opts {
+		opt(&encOptions)
+	}
+
+	res := C.encode(t.tokenizer, cStr, (*C.struct_EncodeOptions)(unsafe.Pointer(&encOptions)))
 	len := int(res.len)
 	if len == 0 {
 		return Encoding{}
 	}
 	defer C.free_buffer(res)
 
-	ids := uin32VecToSlice(res.ids, len)
-	typeIDs := uin32VecToSlice(res.type_ids, len)
-	specialTokensMask := uin32VecToSlice(res.special_tokens_mask, len)
-	attentionMask := uin32VecToSlice(res.attention_mask, len)
+	encoding := Encoding{}
+	encoding.IDs = uintVecToSlice(res.ids, len)
 
-	tokens := make([]string, len)
-	for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
-		tokens[i] = C.GoString(s)
+	if encOptions.ReturnTypeIDs && res.type_ids != nil {
+		encoding.TypeIDs = uintVecToSlice(res.type_ids, len)
 	}
-	return Encoding{
-		IDs:               ids,
-		TypeIDs:           typeIDs,
-		Tokens:            tokens,
-		SpecialTokensMask: specialTokensMask,
-		AttentionMask:     attentionMask,
+
+	if encOptions.ReturnTokens && res.tokens != nil {
+		tokens := make([]string, len)
+		for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
+			tokens[i] = C.GoString(s)
+		}
+		encoding.Tokens = tokens
 	}
+
+	if encOptions.ReturnSpecialTokensMask && res.special_tokens_mask != nil {
+		encoding.SpecialTokensMask = uintVecToSlice(res.special_tokens_mask, len)
+	}
+
+	if encOptions.ReturnAttentionMask && res.attention_mask != nil {
+		encoding.AttentionMask = uintVecToSlice(res.attention_mask, len)
+	}
+
+	return encoding
 }
 
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {

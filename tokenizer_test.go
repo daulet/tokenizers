@@ -59,13 +59,16 @@ func TestEmbeddingConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tk.Encode(tt.str, tt.addSpecial)
-			encoding := tk.Encode(tt.str, tt.addSpecial)
+			encoding := tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnAllAttributes())
 			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
 			assert.Equal(t, tt.wantTypeIDs, encoding.TypeIDs, "wrong type ids")
 			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
 			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
+
+			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
+			assert.Equal(t, tt.wantTokens, tokens, "wrong tokens")
 		})
 	}
 }
@@ -117,12 +120,16 @@ func TestEncode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encoding := tk.Encode(tt.str, tt.addSpecial)
+			encoding := tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnAllAttributes())
 			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
 			assert.Equal(t, tt.wantTypeIDs, encoding.TypeIDs, "wrong type ids")
 			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
 			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
+
+			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
+			assert.Equal(t, tt.wantTokens, tokens, "wrong tokens")
 		})
 	}
 }
@@ -180,9 +187,9 @@ func TestEncodeWithTruncation(t *testing.T) {
 			require.NoError(t, err)
 			defer tk.Close()
 
-			encoding := tk.Encode(tt.str, tt.addSpecial)
-			assert.Equal(t, tt.wantIDs, encoding.IDs)
-			assert.Equal(t, tt.wantTokens, encoding.Tokens)
+			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
+			assert.Equal(t, tt.wantTokens, tokens, "wrong tokens")
 		})
 	}
 }
@@ -215,12 +222,16 @@ func TestEncodeWithPadding(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encoding := tk.Encode(tt.str, tt.addSpecial)
+			encoding := tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnAllAttributes())
 			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
 			assert.Equal(t, tt.wantTypeIDs, encoding.TypeIDs, "wrong type ids")
 			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
 			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
+
+			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
+			assert.Equal(t, tt.wantTokens, tokens, "wrong tokens")
 		})
 	}
 }
@@ -288,8 +299,8 @@ func BenchmarkEncodeNTimes(b *testing.B) {
 	expected := []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		encoding := tk.Encode("brown fox jumps over the lazy dog", false)
-		assert.Equal(b, expected, encoding.IDs)
+		ids, _ := tk.Encode("brown fox jumps over the lazy dog", false)
+		assert.Equal(b, expected, ids)
 	}
 }
 
@@ -303,8 +314,8 @@ func BenchmarkEncodeNChars(b *testing.B) {
 	}
 	str := string(input)
 	b.ResetTimer()
-	encoding := tk.Encode(str, false)
-	assert.Greater(b, len(encoding.Tokens), 0)
+	_, tokens := tk.Encode(str, false)
+	assert.Greater(b, len(tokens), 0)
 }
 
 func BenchmarkDecodeNTimes(b *testing.B) {
