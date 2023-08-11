@@ -50,10 +50,9 @@ func TestEmbeddingConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tk.Encode(tt.str, tt.addSpecial)
-			gotIDs, gotTokens := tk.Encode(tt.str, tt.addSpecial)
-			assert.Equal(t, tt.wantIDs, gotIDs)
-			assert.Equal(t, tt.wantTokens, gotTokens)
+			encodeRes := tk.Encode(tt.str, tt.addSpecial, false, false)
+			assert.Equal(t, tt.wantIDs, encodeRes.TokenIds)
+			assert.Equal(t, tt.wantTokens, encodeRes.Tokens)
 		})
 	}
 }
@@ -96,10 +95,44 @@ func TestEncode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotIDs, gotTokens := tk.Encode(tt.str, tt.addSpecial)
-			assert.Equal(t, tt.wantIDs, gotIDs)
-			assert.Equal(t, tt.wantTokens, gotTokens)
+			encodeRes := tk.Encode(tt.str, tt.addSpecial, false, false)
+			assert.Equal(t, tt.wantIDs, encodeRes.TokenIds)
+			assert.Equal(t, tt.wantTokens, encodeRes.Tokens)
 		})
+	}
+}
+
+func TestEncodeBatch(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer tk.Close()
+
+	tests := []struct {
+		name       string
+		str        string
+		addSpecial bool
+		wantIDs    []uint32
+		wantTokens []string
+	}{
+		{
+			name:       "without special tokens-1",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: false,
+			wantIDs:    []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899},
+			wantTokens: []string{"brown", "fox", "jumps", "over", "the", "lazy", "dog"},
+		},
+		{
+			name:       "without special tokens-2",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: false,
+			wantIDs:    []uint32{2829, 4419, 14523, 2058, 1996, 13971, 4937},
+			wantTokens: []string{"brown", "fox", "jumps", "over", "the", "lazy", "cat"},
+		},
+	}
+
+	for i, tt := range tk.EncodeBatch([]string{"brown fox jumps over the lazy dog", "brown fox jumps over the lazy cat"}, false, false, false) {
+		assert.Equal(t, tests[i].wantIDs, tt.TokenIds)
+		assert.Equal(t, tests[i].wantTokens, tt.Tokens)
 	}
 }
 
@@ -156,10 +189,10 @@ func TestEncodeWithTruncation(t *testing.T) {
 			require.NoError(t, err)
 			defer tk.Close()
 
-			tk.Encode(tt.str, tt.addSpecial)
-			gotIDs, gotTokens := tk.Encode(tt.str, tt.addSpecial)
-			assert.Equal(t, tt.wantIDs, gotIDs)
-			assert.Equal(t, tt.wantTokens, gotTokens)
+			tk.Encode(tt.str, tt.addSpecial, false, false)
+			encodeRes := tk.Encode(tt.str, tt.addSpecial, false, false)
+			assert.Equal(t, tt.wantIDs, encodeRes.TokenIds)
+			assert.Equal(t, tt.wantTokens, encodeRes.Tokens)
 		})
 	}
 }
@@ -227,8 +260,8 @@ func BenchmarkEncodeNTimes(b *testing.B) {
 	expected := []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tokens, _ := tk.Encode("brown fox jumps over the lazy dog", false)
-		assert.Equal(b, expected, tokens)
+		encodeRes := tk.Encode("brown fox jumps over the lazy dog", false, false, false)
+		assert.Equal(b, expected, encodeRes.TokenIds)
 	}
 }
 
@@ -242,8 +275,8 @@ func BenchmarkEncodeNChars(b *testing.B) {
 	}
 	str := string(input)
 	b.ResetTimer()
-	tokens, _ := tk.Encode(str, false)
-	assert.Greater(b, len(tokens), 0)
+	encodeRes := tk.Encode(str, false, false, false)
+	assert.Greater(b, len(encodeRes.TokenIds), 0)
 }
 
 func BenchmarkDecodeNTimes(b *testing.B) {
