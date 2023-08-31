@@ -1,5 +1,5 @@
-module github.com/daulet/tokenizers/example
+module github.com/sunhailin-Leo/tokenizers/example
 
 go 1.20
 
-require github.com/daulet/tokenizers v0.2.1 // indirect
+require github.com/sunhailin-Leo/tokenizers v0.6.0

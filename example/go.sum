@@ -1,2 +1,6 @@
-github.com/daulet/tokenizers v0.2.1 h1:Sb7gfk8N1yIWFCwG6wu5SEo8MsG+Onm7ejIoZe0ZkNg=
-github.com/daulet/tokenizers v0.2.1/go.mod h1:tGnMdZthXdcWY6DGD07IygpwJqiPvG85FQUnhs/wSCs=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
+github.com/sunhailin-Leo/tokenizers v0.6.0 h1:tE5MNiYDZ58noaTJSGe09WdCGMHan3KWWc715XmIV4g=
+github.com/sunhailin-Leo/tokenizers v0.6.0/go.mod h1:iD2EkMSStj1tpP5MSueTe3EjTC96Y0PZcFOfzGBIp70=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
