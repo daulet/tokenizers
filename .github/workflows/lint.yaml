@@ -1,0 +1,21 @@
+name: Lint Check
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.21.x
+      - run: go version
+      #- run: diff -u <(echo -n) <(gofmt -d .)
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.54.2
+          args: --enable=nolintlint,gochecknoinits,bodyclose,gofumpt --verbose
