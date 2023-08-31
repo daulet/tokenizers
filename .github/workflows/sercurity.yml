@@ -1,0 +1,21 @@
+name: Security Check
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.21.x]
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    env:
+      GO111MODULE: on
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@v2.17.0
+        with:
+          args: '-exclude=G103,G104,G304,G402 ./...'

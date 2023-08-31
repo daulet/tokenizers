@@ -31,23 +31,36 @@ pub struct EncodeOptions {
     return_attention_mask: bool,
     return_offsets: bool,
 
-    with_offsets_char_mode:bool,
+    with_offsets_char_mode: bool,
 }
 
+/// # Safety
+///
+/// This function is return Tokenizer object to Golang from
+/// after reading tokenizer.json to bytes
 #[no_mangle]
-pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut Tokenizer {
+pub unsafe extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
-    let tokenizer = Tokenizer::from_bytes(bytes_slice).
-        expect("failed to create tokenizer");
-    return Box::into_raw(Box::new(tokenizer));
+    let tokenizer = Tokenizer::from_bytes(bytes_slice).expect("failed to create tokenizer");
+
+    Box::into_raw(Box::new(tokenizer))
 }
 
+/// # Safety
+///
+/// This function is return Tokenizer(truncation mode) object to Golang from
+/// after read tokenizer.json to bytes
 #[no_mangle]
-pub extern "C" fn from_bytes_with_truncation(bytes: *const u8, len: u32, max_len: usize, dir: u8) -> *mut Tokenizer {
+pub unsafe extern "C" fn from_bytes_with_truncation(
+    bytes: *const u8,
+    len: u32,
+    max_len: usize,
+    dir: u8,
+) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
     let tokenizer: Tokenizer = Tokenizer::from_bytes(bytes_slice)
         .expect("failed to create tokenizer")
-        .with_truncation(Some(tokenizers::tokenizer::TruncationParams{
+        .with_truncation(Some(tokenizers::tokenizer::TruncationParams {
             max_length: max_len,
             direction: match dir {
                 0 => tokenizers::tokenizer::TruncationDirection::Left,
@@ -56,12 +69,18 @@ pub extern "C" fn from_bytes_with_truncation(bytes: *const u8, len: u32, max_len
             },
             ..Default::default()
         }))
-        .unwrap().to_owned().into();
-    return Box::into_raw(Box::new(tokenizer));
+        .unwrap()
+        .to_owned()
+        .into();
+
+    Box::into_raw(Box::new(tokenizer))
 }
 
+/// # Safety
+///
+/// This function is return Tokenizer object to Golang from tokenizer.json
 #[no_mangle]
-pub extern "C" fn from_file(config: *const libc::c_char) -> *mut libc::c_void {
+pub unsafe extern "C" fn from_file(config: *const libc::c_char) -> *mut libc::c_void {
     let config_cstr = unsafe { CStr::from_ptr(config) };
     let config = config_cstr.to_str().unwrap();
     let config = PathBuf::from(config);
@@ -70,17 +89,17 @@ pub extern "C" fn from_file(config: *const libc::c_char) -> *mut libc::c_void {
             let ptr = Box::into_raw(Box::new(tokenizer));
             ptr.cast()
         }
-        Err(_) => {
-            null_mut()
-        }
+        Err(_) => null_mut(),
     }
 }
 
 fn encode_process(encoding: Encoding, options: &EncodeOptions) -> Buffer {
     // ids, tokens
     let mut vec_ids = encoding.get_ids().to_vec();
-    let mut vec_tokens = encoding.get_tokens()
-        .to_vec().into_iter()
+    let mut vec_tokens = encoding
+        .get_tokens()
+        .iter()
+        .cloned()
         .map(|s| std::ffi::CString::new(s).unwrap().into_raw())
         .collect::<Vec<_>>();
     vec_ids.shrink_to_fit();
@@ -121,48 +140,80 @@ fn encode_process(encoding: Encoding, options: &EncodeOptions) -> Buffer {
     // offsets
     let mut offsets: *mut Offset = null_mut();
     if options.return_offsets {
-        let mut vec_offsets = encoding.get_offsets()
-            .to_vec()
-            .into_iter()
-            .map(|s| Offset { start: s.0, end: s.1 })
+        let mut vec_offsets = encoding
+            .get_offsets()
+            .iter()
+            .map(|s| Offset {
+                start: s.0,
+                end: s.1,
+            })
             .collect::<Vec<_>>();
         vec_offsets.shrink_to_fit();
         offsets = vec_offsets.as_mut_ptr();
         std::mem::forget(vec_offsets);
     }
 
-    return Buffer { ids, type_ids, special_tokens_mask, attention_mask, tokens, offsets, len }
+    Buffer {
+        ids,
+        type_ids,
+        special_tokens_mask,
+        attention_mask,
+        tokens,
+        offsets,
+        len,
+    }
 }
 
+/// # Safety
+///
+/// This function is tokenizer single encode function
 #[no_mangle]
-pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, options: &EncodeOptions) -> Buffer {
+pub unsafe extern "C" fn encode(
+    ptr: *mut libc::c_void,
+    message: *const libc::c_char,
+    options: &EncodeOptions,
+) -> Buffer {
     let tokenizer: &Tokenizer;
     unsafe {
-        tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
+        tokenizer = ptr
+            .cast::<Tokenizer>()
+            .as_ref()
+            .expect("failed to cast tokenizer");
     }
     let message_cstr = unsafe { CStr::from_ptr(message) };
     let message = message_cstr.to_str().unwrap();
 
-    let encoding: Encoding;
-    if options.with_offsets_char_mode {
-        encoding = tokenizer.encode_char_offsets(message, options.add_special_tokens)
-            .expect("failed to encode input");
+    let encoding = if options.with_offsets_char_mode {
+        tokenizer
+            .encode_char_offsets(message, options.add_special_tokens)
+            .expect("failed to encode input")
     } else {
-        encoding = tokenizer.encode(message, options.add_special_tokens)
-            .expect("failed to encode input");
-    }
+        tokenizer
+            .encode(message, options.add_special_tokens)
+            .expect("failed to encode input")
+    };
 
-    return encode_process(encoding, options);
+    encode_process(encoding, options)
 }
 
+/// # Safety
+///
+/// This function is tokenizer batch encode function
 #[no_mangle]
-pub extern "C" fn encode_batch(ptr: *mut libc::c_void, messages: *const *const libc::c_char, options: &EncodeOptions) -> *mut Buffer {
+pub unsafe extern "C" fn encode_batch(
+    ptr: *mut libc::c_void,
+    messages: *const *const libc::c_char,
+    options: &EncodeOptions,
+) -> *mut Buffer {
     let tokenizer: &Tokenizer;
     let mut index = 0;
     let mut encode_messages: Vec<String> = Vec::new();
 
     unsafe {
-        tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
+        tokenizer = ptr
+            .cast::<Tokenizer>()
+            .as_ref()
+            .expect("failed to cast tokenizer");
         // Iterate through the C string pointers until a NULL pointer is encountered
         while !(*messages.offset(index)).is_null() {
             let cstr_ptr = *messages.offset(index);
@@ -172,62 +223,86 @@ pub extern "C" fn encode_batch(ptr: *mut libc::c_void, messages: *const *const l
         }
     }
 
-    let encoding: Vec<Encoding>;
-    if options.with_offsets_char_mode {
-        encoding = tokenizer.encode_batch_char_offsets(encode_messages, options.add_special_tokens)
-            .expect("failed to encode input");
+    let encoding = if options.with_offsets_char_mode {
+        tokenizer
+            .encode_batch_char_offsets(encode_messages, options.add_special_tokens)
+            .expect("failed to encode input")
     } else {
-        encoding = tokenizer.encode_batch(encode_messages, options.add_special_tokens)
-            .expect("failed to encode input");
-    }
+        tokenizer
+            .encode_batch(encode_messages, options.add_special_tokens)
+            .expect("failed to encode input")
+    };
 
     // batch process
     let mut vec_encode_results: Vec<Buffer> = encoding
-        .to_vec()
-        .into_iter()
-        .map(|s|encode_process(s, options))
+        .iter()
+        .cloned()
+        .map(|s| encode_process(s, options))
         .collect::<Vec<Buffer>>();
     vec_encode_results.shrink_to_fit();
 
     let encode_results = vec_encode_results.as_mut_ptr();
     std::mem::forget(vec_encode_results);
 
-    return encode_results;
+    encode_results
 }
 
+/// # Safety
+///
+/// This function is tokenizer decode function
 #[no_mangle]
-pub extern "C" fn decode(ptr: *mut libc::c_void, ids: *const u32, len: u32, skip_special_tokens: bool) -> *mut libc::c_char {
+pub unsafe extern "C" fn decode(
+    ptr: *mut libc::c_void,
+    ids: *const u32,
+    len: u32,
+    skip_special_tokens: bool,
+) -> *mut libc::c_char {
     let tokenizer: &Tokenizer;
     unsafe {
-        tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
+        tokenizer = ptr
+            .cast::<Tokenizer>()
+            .as_ref()
+            .expect("failed to cast tokenizer");
     }
     let ids_slice = unsafe { std::slice::from_raw_parts(ids, len as usize) };
-    let string = tokenizer.decode(ids_slice, skip_special_tokens)
+    let string = tokenizer
+        .decode(ids_slice, skip_special_tokens)
         .expect("failed to decode input");
     let c_string = std::ffi::CString::new(string).unwrap();
     c_string.into_raw()
 }
 
+/// # Safety
+///
+/// This function is return vocab size to Golang
 #[no_mangle]
-pub extern "C" fn vocab_size(ptr: *mut libc::c_void) -> u32 {
+pub unsafe extern "C" fn vocab_size(ptr: *mut libc::c_void) -> u32 {
     let tokenizer: &Tokenizer;
     unsafe {
-        tokenizer = ptr.cast::<Tokenizer>().as_ref()
+        tokenizer = ptr
+            .cast::<Tokenizer>()
+            .as_ref()
             .expect("failed to cast tokenizer");
     }
     tokenizer.get_vocab_size(true) as u32
 }
 
+/// # Safety
+///
+/// This function is release Tokenizer from Rust return to Golang
 #[no_mangle]
-pub extern "C" fn free_tokenizer(ptr: *mut libc::c_void) {
+pub unsafe extern "C" fn free_tokenizer(ptr: *mut libc::c_void) {
     if ptr.is_null() {
         return;
     }
     ptr.cast::<Tokenizer>();
 }
 
+/// # Safety
+///
+/// This function is release Buffer struct from Rust return to Golang
 #[no_mangle]
-pub extern "C" fn free_buffer(buf: Buffer) {
+pub unsafe extern "C" fn free_buffer(buf: Buffer) {
     if !buf.ids.is_null() {
         unsafe {
             Vec::from_raw_parts(buf.ids, buf.len, buf.len);
@@ -256,15 +331,18 @@ pub extern "C" fn free_buffer(buf: Buffer) {
             }
         }
     }
-    if buf.offsets != null_mut() {
+    if !buf.offsets.is_null() {
         unsafe {
             Vec::from_raw_parts(buf.offsets, buf.len, buf.len).clear();
         }
     }
 }
 
+/// # Safety
+///
+/// This function is release Vec<Buffer> from Rust return to Golang
 #[no_mangle]
-pub extern "C" fn free_batch_buffer(bufs: *mut Buffer) {
+pub unsafe extern "C" fn free_batch_buffer(bufs: *mut Buffer) {
     unsafe {
         let box_buffer: Box<Buffer> = Box::from_raw(bufs);
         let vec_buf: Vec<Buffer> = vec![*box_buffer];
@@ -274,8 +352,11 @@ pub extern "C" fn free_batch_buffer(bufs: *mut Buffer) {
     }
 }
 
+/// # Safety
+///
+/// This function is release C.char from Rust return to Golang
 #[no_mangle]
-pub extern "C" fn free_string(ptr: *mut libc::c_char) {
+pub unsafe extern "C" fn free_string(ptr: *mut libc::c_char) {
     if ptr.is_null() {
         return;
     }

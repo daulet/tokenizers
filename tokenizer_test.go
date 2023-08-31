@@ -283,7 +283,7 @@ func TestEncodeWithPadding(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// tk, err := tokenizers.FromBytesWithPadding(embeddedBytesV1, uint32(tt.maxLen))
-			tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+			tk, err := tokenizers.FromFile("./test/data/bert-base-uncased-padding.json")
 			require.NoError(t, err)
 			defer tk.Close()
 
