@@ -2,7 +2,6 @@ package tokenizers_test
 
 import (
 	_ "embed"
-	"math/rand"
 	"testing"
 
 	"github.com/sunhailin-Leo/tokenizers"
@@ -372,6 +371,8 @@ func BenchmarkEncodeWithOptionNTimes(b *testing.B) {
 	}
 }
 
+// It will take a long time to run benchmark
+/*
 func BenchmarkEncodeNChars(b *testing.B) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(b, err)
@@ -385,6 +386,7 @@ func BenchmarkEncodeNChars(b *testing.B) {
 	encodeRes := tk.Encode(str, false)
 	assert.Greater(b, len(encodeRes.TokenIds), 0)
 }
+*/
 
 func BenchmarkDecodeNTimes(b *testing.B) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
@@ -397,6 +399,8 @@ func BenchmarkDecodeNTimes(b *testing.B) {
 	}
 }
 
+// It will take a long time to run benchmark
+/*
 func BenchmarkDecodeNTokens(b *testing.B) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(b, err)
@@ -410,3 +414,4 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 	// a token is one or more characters
 	assert.Greater(b, len(text), b.N)
 }
+*/
