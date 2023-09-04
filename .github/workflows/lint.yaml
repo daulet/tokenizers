@@ -17,7 +17,7 @@ jobs:
           go-version: 1.21.x
 
       - name: Check Go Version
-        run: go version >> $GITHUB_OUTPUT
+        run: go version
 
       #- run: diff -u <(echo -n) <(gofmt -d .)
       - name: Run golangci-lint
