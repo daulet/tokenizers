@@ -146,7 +146,7 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool, opts ...EncodeOpti
 	res := C.encode(t.tokenizer, cStr, (*C.struct_EncodeOptions)(unsafe.Pointer(&encOptions)))
 	resLen := int(res.len)
 	if resLen == 0 {
-		return nil
+		return new(TokenizerResult)
 	}
 	defer C.free_buffer(res)
 
