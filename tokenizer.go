@@ -1,7 +1,5 @@
 package tokenizers
 
-// TODO packaging: how do we build the rust lib for distribution?
-
 /*
 #cgo LDFLAGS: ${SRCDIR}/libtokenizers.a -ldl -lm -lstdc++
 #include <stdlib.h>
@@ -148,7 +146,7 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool, opts ...EncodeOpti
 	res := C.encode(t.tokenizer, cStr, (*C.struct_EncodeOptions)(unsafe.Pointer(&encOptions)))
 	resLen := int(res.len)
 	if resLen == 0 {
-		return new(TokenizerResult)
+		return nil
 	}
 	defer C.free_buffer(res)
 
@@ -209,6 +207,7 @@ func (t *Tokenizer) EncodeBatch(strArr []string, addSpecialTokens bool, opts ...
 		cStrings[i] = C.CString(s)
 	}
 	defer func() {
+		// release c-char
 		for i := range cStrings {
 			C.free(unsafe.Pointer(cStrings[i]))
 		}

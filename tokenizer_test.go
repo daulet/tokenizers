@@ -166,6 +166,36 @@ func TestEncodeOptions(t *testing.T) {
 	}
 }
 
+func TestEncodeOffsets(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer tk.Close()
+
+	encodeRes := tk.Encode("brown fox jumps over the lazy dog", false, tokenizers.WithReturnOffsets())
+	expected := []tokenizers.Offset{
+		{Start: 0, End: 5},
+		{Start: 6, End: 9},
+		{Start: 10, End: 15},
+		{Start: 16, End: 20},
+		{Start: 21, End: 24},
+		{Start: 25, End: 29},
+		{Start: 30, End: 33},
+	}
+	assert.Equal(t, encodeRes.Offsets, expected)
+
+	encodeResV1 := tk.Encode("brown fox jumps over the lazy dog", false, tokenizers.WithReturnCharModeOffsets())
+	expectedV1 := []tokenizers.Offset{
+		{Start: 0, End: 5},
+		{Start: 6, End: 9},
+		{Start: 10, End: 15},
+		{Start: 16, End: 20},
+		{Start: 21, End: 24},
+		{Start: 25, End: 29},
+		{Start: 30, End: 33},
+	}
+	assert.Equal(t, encodeResV1.Offsets, expectedV1)
+}
+
 func TestEncodeBatch(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)
