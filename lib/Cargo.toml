@@ -10,7 +10,7 @@ crate-type = ["staticlib"]
 libc = "0.2.147"
 # not a direct dependency, but necessary for cross compilation
 openssl = { version = "0.10.50", features = ["vendored"] }
-tokenizers = "0.13.3"
+tokenizers = "0.14.0"
 
 [registries.crates-io]
 # speed up "Updating crates.io index"

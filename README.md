@@ -36,11 +36,28 @@ Encode text and decode tokens:
 fmt.Println("Vocab size:", tk.VocabSize())
 // Vocab size: 30522
 fmt.Println(tk.Encode("brown fox jumps over the lazy dog", false))
-// [2829 4419 14523 2058 1996 13971 3899] [brown fox jumps over the lazy dog]
+// &{[2829 4419 14523 2058 1996 13971 3899] [] [] [] [brown fox jumps over the lazy dog] []}
 fmt.Println(tk.Encode("brown fox jumps over the lazy dog", true))
-// [101 2829 4419 14523 2058 1996 13971 3899 102] [[CLS] brown fox jumps over the lazy dog [SEP]]
+// &{[101 2829 4419 14523 2058 1996 13971 3899 102] [] [] [] [[CLS] brown fox jumps over the lazy dog [SEP]] []}
 fmt.Println(tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true))
 // brown fox jumps over the lazy dog
+```
+
+Encode Result Struct:
+```go
+type Offset struct {
+	Start uint32
+	End   uint32
+}
+
+type TokenizerResult struct {
+	TokenIds          []uint32
+	TypeIds           []uint32
+	SpecialTokensMask []uint32
+	AttentionMask     []uint32
+	Tokens            []string
+	Offsets           []Offset
+}
 ```
 
 ## Benchmarks
@@ -48,12 +65,12 @@ fmt.Println(tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true
 go test . -bench=. -benchmem -benchtime=10s
 
 goos: darwin
-goarch: arm64
+goarch: amd64
 pkg: github.com/sunhailin-Leo/tokenizers
-BenchmarkEncodeNTimes-10     	  996556	     11851 ns/op	     116 B/op	       6 allocs/op
-BenchmarkEncodeNChars-10      1000000000	     2.446 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDecodeNTimes-10     	 7286056	      1657 ns/op	     112 B/op	       4 allocs/op
-BenchmarkDecodeNTokens-10    	65191378	     211.0 ns/op	       7 B/op	       0 allocs/op
+cpu: Intel(R) Core(TM) i7-8850H CPU @ 2.60GHz
+BenchmarkEncodeNTimes-12                  288102             39637 ns/op             440 B/op         14 allocs/op
+BenchmarkEncodeWithOptionNTimes-12        316530             38884 ns/op             552 B/op         16 allocs/op
+BenchmarkDecodeNTimes-12                  714762             17110 ns/op              96 B/op          3 allocs/op
 PASS
-ok  	github.com/sunhailin-Leo/tokenizers	126.681s
+ok      github.com/sunhailin-Leo/tokenizers     38.997s
 ```

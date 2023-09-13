@@ -4,10 +4,9 @@ import (
 	_ "embed"
 	"testing"
 
-	"github.com/sunhailin-Leo/tokenizers"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/sunhailin-Leo/tokenizers"
 )
 
 //go:embed test/data/sentence-transformers-labse.json
