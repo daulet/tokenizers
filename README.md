@@ -6,15 +6,6 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 `make build` to build `libtokenizers.a` that you need to run your application that uses bindings.
 
-### Using pre-built binaries
-
-Build your Go application using pre-built native binaries: `docker build --platform=linux/amd64 -f example/Dockerfile .`
-
-Available binaries:
-* [darwin-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.darwin-arm64.tar.gz)
-* [linux-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-arm64.tar.gz)
-* [linux-amd64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-amd64.tar.gz)
-
 ## Getting started
 
 TLDR: [working example](example/main.go).
@@ -74,3 +65,20 @@ BenchmarkDecodeNTimes-12                  714762             17110 ns/op        
 PASS
 ok      github.com/sunhailin-Leo/tokenizers     38.997s
 ```
+
+## Import this package in your projects
+1、Find your project package main
+```go
+package main
+
+//go:generate make -C $GOPATH/pkg/mod/github.com/sunhailin-!leo/tokenizers@v0.6.0 
+// The last version tag must follow go.mod version.
+
+// Your project imports.
+import ""
+
+func main() {
+	// Your project code here
+}
+```
+2、Before your first run or build, you must run `go generate` in where did you want to execute `go run / build`
