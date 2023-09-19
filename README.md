@@ -4,7 +4,10 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 ## Installation
 
-`make build` to build `libtokenizers.a` that you need to run your application that uses bindings.
+* Option 1: `make build` to build `libtokenizers.a` that you need to run your application that uses bindings.
+* Option 2: Here: [import-this-package-in-your-projects](https://github.com/sunhailin-Leo/tokenizers#import-this-package-in-your-projects)
+
+**Both two options, you need a Rust environment to build `libtokenizers.a`.**
 
 ## Getting started
 
