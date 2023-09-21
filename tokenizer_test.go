@@ -14,6 +14,9 @@ import (
 //go:embed test/data/sentence-transformers-labse.json
 var embeddedBytes []byte
 
+//go:embed test/data/cohere-tokenizer.json
+var cohereTknzer []byte
+
 // TODO test for leaks
 
 func TestInvalidConfigPath(t *testing.T) {
@@ -91,6 +94,13 @@ func TestEncode(t *testing.T) {
 		{
 			name:       "empty string with special tokens",
 			str:        "",
+			addSpecial: true,
+			wantIDs:    []uint32{101, 102},
+			wantTokens: []string{"[CLS]", "[SEP]"},
+		},
+		{
+			name:       "invalid utf8 string",
+			str:        "\x91D",
 			addSpecial: false,
 		},
 	}
@@ -211,6 +221,15 @@ func TestDecode(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestDecodeInvalidString(t *testing.T) {
+	tk, err := tokenizers.FromBytes(cohereTknzer)
+	require.NoError(t, err)
+	defer tk.Close()
+
+	str := tk.Decode([]uint32{196}, true)
+	assert.Empty(t, str)
 }
 
 func TestVocabSize(t *testing.T) {
