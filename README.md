@@ -57,3 +57,7 @@ BenchmarkDecodeNTokens-10    	65191378	     211.0 ns/op	       7 B/op	       0 a
 PASS
 ok  	github.com/daulet/tokenizers	126.681s
 ```
+
+## Cross compilation
+- `cargo install cross --git https://github.com/cross-rs/cross`
+- `make release`
