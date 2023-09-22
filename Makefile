@@ -18,7 +18,7 @@ release-darwin-%:
 release-linux-%:
 	docker buildx build --platform linux/$* -f example/Dockerfile . -t tokenizers.linux-$*
 	mkdir -p artifacts/linux-$*
-	docker run -v $(PWD)/release/linux-$*:/mnt --entrypoint cp tokenizers.linux-$* /workspace/libtokenizers.a /mnt/libtokenizers.a
+	docker run -v $(PWD)/artifacts/linux-$*:/mnt --entrypoint cp tokenizers.linux-$* /workspace/libtokenizers.a /mnt/libtokenizers.a
 	cd artifacts/linux-$* && \
 		tar -czf libtokenizers.linux-$*.tar.gz libtokenizers.a
 	mkdir -p artifacts/all
