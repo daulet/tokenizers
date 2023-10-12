@@ -14,9 +14,6 @@ import (
 //go:embed test/data/sentence-transformers-labse.json
 var embeddedBytes []byte
 
-//go:embed test/data/cohere-tokenizer.json
-var cohereTknzer []byte
-
 // TODO test for leaks
 
 func TestInvalidConfigPath(t *testing.T) {
@@ -224,7 +221,7 @@ func TestDecode(t *testing.T) {
 }
 
 func TestDecodeInvalidString(t *testing.T) {
-	tk, err := tokenizers.FromBytes(cohereTknzer)
+	tk, err := tokenizers.FromFile("test/data/cohere-tokenizer.json")
 	require.NoError(t, err)
 	defer tk.Close()
 
