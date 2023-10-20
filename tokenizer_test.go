@@ -110,6 +110,58 @@ func TestEncode(t *testing.T) {
 	}
 }
 
+func TestEncodeBPECodeLlama(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/codellama-tokenizer.json")
+	require.NoError(t, err)
+	defer tk.Close()
+	tests := []struct {
+		name       string
+		str        string
+		addSpecial bool
+		wantIDs    []uint32
+		wantTokens []string
+	}{
+		{
+			name:       "without special tokens",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: false,
+			wantIDs:    []uint32{17354, 1701, 29916, 432, 17204, 975, 278, 17366, 11203},
+			wantTokens: []string{"▁brown", "▁fo", "x", "▁j", "umps", "▁over", "▁the", "▁lazy", "▁dog"},
+		},
+		{
+			name:       "with special tokens",
+			str:        "brown fox jumps over the lazy dog",
+			addSpecial: true,
+			wantIDs:    []uint32{1, 17354, 1701, 29916, 432, 17204, 975, 278, 17366, 11203},
+			wantTokens: []string{"<s>", "▁brown", "▁fo", "x", "▁j", "umps", "▁over", "▁the", "▁lazy", "▁dog"},
+		},
+		{
+			name:       "empty string",
+			str:        "",
+			addSpecial: false,
+		},
+		{
+			name:       "empty string with special tokens",
+			str:        "",
+			addSpecial: true,
+			wantIDs:    []uint32{1},
+			wantTokens: []string{"<s>"},
+		},
+		{
+			name:       "invalid utf8 string",
+			str:        "\x91D",
+			addSpecial: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIDs, gotTokens := tk.Encode(tt.str, tt.addSpecial)
+			assert.Equal(t, tt.wantIDs, gotIDs)
+			assert.Equal(t, tt.wantTokens, gotTokens)
+		})
+	}
+}
+
 func TestEncodeWithTruncation(t *testing.T) {
 	tests := []struct {
 		name       string

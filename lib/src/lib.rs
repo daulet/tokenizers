@@ -20,18 +20,30 @@ pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut Tokenizer {
 #[no_mangle]
 pub extern "C" fn from_bytes_with_truncation(bytes: *const u8, len: u32, max_len: usize, dir: u8) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
-    let tokenizer: Tokenizer = Tokenizer::from_bytes(bytes_slice)
-        .expect("failed to create tokenizer")
-        .with_truncation(Some(tokenizers::tokenizer::TruncationParams{
-            max_length: max_len,
-            direction: match dir {
-                0 => tokenizers::tokenizer::TruncationDirection::Left,
-                1 => tokenizers::tokenizer::TruncationDirection::Right,
-                _ => panic!("invalid truncation direction"),
-            },
-            ..Default::default()
-        })).to_owned().into();
-    Box::into_raw(Box::new(tokenizer))
+
+    match Tokenizer::from_bytes(bytes_slice) {
+        Ok(mut tokenizer) => {
+            match tokenizer.with_truncation(Some(tokenizers::tokenizer::TruncationParams{
+                max_length: max_len,
+                direction: match dir {
+                    0 => tokenizers::tokenizer::TruncationDirection::Left,
+                    1 => tokenizers::tokenizer::TruncationDirection::Right,
+                    _ => panic!("invalid truncation direction"),
+                },
+                ..Default::default()
+            })) {
+                Ok(_) => Box::into_raw(Box::new(tokenizer)),
+                Err(err) => {
+                    println!("failed to apply truncation to tokenizer: {}", err);
+                    std::ptr::null_mut()
+                }
+            }
+        },
+        Err(err) => {
+            println!("failed to create tokenizer: {}", err);
+            std::ptr::null_mut()
+        }
+    }
 }
 
 #[no_mangle]
@@ -90,7 +102,7 @@ pub extern "C" fn decode(ptr: *mut libc::c_void, ids: *const u32, len: u32, skip
     }
     let ids_slice = unsafe { std::slice::from_raw_parts(ids, len as usize) };
 
-    let string = tokenizer.decode(ids_slice.to_vec(), skip_special_tokens).expect("failed to decode input");
+    let string = tokenizer.decode(ids_slice, skip_special_tokens).expect("failed to decode input");
     match std::ffi::CString::new(string) {
         Ok(c_string) => c_string.into_raw(),
         Err(_) => ptr::null_mut(),
