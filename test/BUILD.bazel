@@ -1,0 +1,13 @@
+filegroup(
+    name = "data",
+    srcs = glob(["data/**"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "embeddata",
+    srcs = [
+        "data/sentence-transformers-labse.json",
+    ],
+    visibility = ["//visibility:public"],
+)

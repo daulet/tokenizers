@@ -11,5 +11,6 @@ go_library(
 go_binary(
     name = "example",
     embed = [":example_lib"],
+    data = ["//test:data"],
     visibility = ["//visibility:public"],
 )

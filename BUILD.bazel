@@ -34,7 +34,8 @@ rust_static_library(
 go_test(
     name = "tokenizers_test",
     srcs = ["tokenizer_test.go"],
-    embedsrcs = ["test/data/sentence-transformers-labse.json"],
+    data = ["//test:data"],
+    embedsrcs = ["//test:embeddata"],
     deps = [
         ":tokenizers",
         "@com_github_stretchr_testify//assert",
