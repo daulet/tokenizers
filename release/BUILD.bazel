@@ -10,6 +10,7 @@ go_library(
 
 go_binary(
     name = "release",
+    data = ["//test:data"],
     embed = [":release_lib"],
     visibility = ["//visibility:public"],
 )
