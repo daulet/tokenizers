@@ -2,7 +2,6 @@ libtokenizers.a
 /artifacts
 
 # Rust
-Cargo.lock
 target
 
 # Bazel
