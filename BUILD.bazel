@@ -50,7 +50,7 @@ go_library(
         "tokenizers.h",
     ],
     cdeps = [
-        ":libtokenizers",
+        ":tokenizers",
     ],
     cgo = True,
     importpath = "github.com/daulet/tokenizers",
