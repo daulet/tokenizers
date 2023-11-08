@@ -49,10 +49,10 @@ go_library(
         "tokenizer.go",
         "tokenizers.h",
     ],
-    cgo = True,
     cdeps = [
         ":libtokenizers",
     ],
+    cgo = True,
     # clinkopts = ["./libtokenizers.a -ldl -lm -lstdc++"],
     importpath = "github.com/daulet/tokenizers",
     visibility = ["//visibility:public"],
