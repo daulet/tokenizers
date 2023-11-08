@@ -34,3 +34,6 @@ test: build
 
 clean:
 	rm -rf libtokenizers.a lib/target
+
+bazel-sync:
+	CARGO_BAZEL_REPIN=1 bazel sync --only=crate_index
