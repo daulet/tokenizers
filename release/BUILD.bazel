@@ -5,7 +5,7 @@ go_library(
     srcs = ["main.go"],
     importpath = "github.com/daulet/tokenizers/release",
     visibility = ["//visibility:private"],
-    deps = ["//:tokenizers"],
+    deps = ["//:tokenizers_go"],
 )
 
 go_binary(
