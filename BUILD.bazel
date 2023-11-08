@@ -1,15 +1,58 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
-load("@rules_rust//rust:defs.bzl", "rust_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_rust//rust:defs.bzl", "rust_static_library")
 
-rust_library(
-    name = "tokenizers",
+# gazelle:prefix github.com/daulet/tokenizers
+gazelle(
+    name = "gazelle",
+)
+
+gazelle(
+    name = "gazelle-update-repos",
+    args = [
+        "-from_file=go.mod",
+        "-to_macro=deps.bzl%go_dependencies",
+        "-prune",
+    ],
+    command = "update-repos",
+)
+
+rust_static_library(
+    name = "libtokenizers",
     srcs = glob([
         "src/**/*.rs",
     ]),
     aliases = aliases(),
-    deps = all_crate_deps(),
     proc_macro_deps = all_crate_deps(
         proc_macro = True,
     ),
+    visibility = ["//visibility:public"],
+    deps = all_crate_deps(),
+)
+
+go_test(
+    name = "tokenizers_test",
+    srcs = ["tokenizer_test.go"],
+    embedsrcs = ["test/data/sentence-transformers-labse.json"],
+    deps = [
+        ":tokenizers",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+    ],
+)
+
+go_library(
+    name = "tokenizers",
+    srcs = [
+        "tokenizer.go",
+        "tokenizers.h",
+    ],
+    cgo = True,
+    cdeps = [
+        ":libtokenizers",
+    ],
+    # clinkopts = ["./libtokenizers.a -ldl -lm -lstdc++"],
+    importpath = "github.com/daulet/tokenizers",
     visibility = ["//visibility:public"],
 )
