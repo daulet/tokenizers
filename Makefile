@@ -16,9 +16,9 @@ release-darwin-%:
 	cp artifacts/darwin-$*/libtokenizers.darwin-$*.tar.gz artifacts/all/libtokenizers.darwin-$*.tar.gz
 
 release-linux-%:
-	docker buildx build --platform linux/$* -f example/Dockerfile . -t tokenizers.linux-$*
+	docker buildx build --platform linux/$* -f release/Dockerfile . -t tokenizers.linux-$*
 	mkdir -p artifacts/linux-$*
-	docker run -v $(PWD)/artifacts/linux-$*:/mnt --entrypoint cp tokenizers.linux-$* /workspace/libtokenizers.a /mnt/libtokenizers.a
+	docker run -v $(PWD)/artifacts/linux-$*:/mnt --entrypoint cp tokenizers.linux-$* /go/pkg/mod/github.com/daulet/tokenizers@v0.5.1/libtokenizers.a /mnt/libtokenizers.a
 	cd artifacts/linux-$* && \
 		tar -czf libtokenizers.linux-$*.tar.gz libtokenizers.a
 	mkdir -p artifacts/all
