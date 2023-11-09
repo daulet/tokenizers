@@ -19,7 +19,7 @@ gazelle(
 )
 
 rust_static_library(
-    name = "tokenizers",
+    name = "tokenizers_rs",
     srcs = glob([
         "src/**/*.rs",
     ]),
@@ -37,20 +37,20 @@ go_test(
     data = ["//test:data"],
     embedsrcs = ["//test:embeddata"],
     deps = [
-        ":tokenizers_go",
+        ":tokenizers",
         "@com_github_stretchr_testify//assert",
         "@com_github_stretchr_testify//require",
     ],
 )
 
 go_library(
-    name = "tokenizers_go",
+    name = "tokenizers",
     srcs = [
         "tokenizer.go",
         "tokenizers.h",
     ],
     cdeps = [
-        ":tokenizers",
+        ":tokenizers_rs",
     ],
     cgo = True,
     importpath = "github.com/daulet/tokenizers",
