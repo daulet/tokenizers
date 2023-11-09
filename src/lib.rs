@@ -30,7 +30,7 @@ pub extern "C" fn from_bytes_with_truncation(bytes: *const u8, len: u32, max_len
                 _ => panic!("invalid truncation direction"),
             },
             ..Default::default()
-        })).to_owned().into();
+        })).unwrap().to_owned().into();
     Box::into_raw(Box::new(tokenizer))
 }
 
@@ -90,7 +90,7 @@ pub extern "C" fn decode(ptr: *mut libc::c_void, ids: *const u32, len: u32, skip
     }
     let ids_slice = unsafe { std::slice::from_raw_parts(ids, len as usize) };
 
-    let string = tokenizer.decode(ids_slice.to_vec(), skip_special_tokens).expect("failed to decode input");
+    let string = tokenizer.decode(ids_slice, skip_special_tokens).expect("failed to decode input");
     match std::ffi::CString::new(string) {
         Ok(c_string) => c_string.into_raw(),
         Err(_) => ptr::null_mut(),
