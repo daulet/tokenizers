@@ -392,9 +392,10 @@ func BenchmarkEncodeNChars(b *testing.B) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(b, err)
 	defer tk.Close()
+	vocabSize := tk.VocabSize()
 	input := make([]rune, 0, b.N)
 	for i := 0; i < b.N; i++ {
-		input = append(input, rune(rand.Uint32()%tk.VocabSize()))
+		input = append(input, rune(rand.Uint32()%vocabSize))
 	}
 	str := string(input)
 	b.ResetTimer()
@@ -417,9 +418,10 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(b, err)
 	defer tk.Close()
+	vocabSize := tk.VocabSize()
 	input := make([]uint32, 0, b.N)
 	for i := 0; i < b.N; i++ {
-		input = append(input, rand.Uint32()%tk.VocabSize())
+		input = append(input, rand.Uint32()%vocabSize)
 	}
 	b.ResetTimer()
 	text := tk.Decode(input, true)
