@@ -1,19 +1,20 @@
 # syntax=docker/dockerfile:1.3
 
-FROM rust:1.69 as builder-rust
+FROM rust:1.71 as builder-rust
 ARG TARGETPLATFORM
 WORKDIR /workspace
-COPY ./lib .
-RUN --mount=type=cache,target=/usr/local/cargo/registry,id=${TARGETPLATFORM} \
-    --mount=type=cache,target=/root/target,id=${TARGETPLATFORM} \
-    cargo build --release
+COPY ./src ./src
+COPY ./Cargo.toml ./Cargo.toml
+COPY ./Cargo.lock ./Cargo.lock
+RUN cargo build --release
 
-FROM golang:1.19 as builder-go
+FROM golang:1.21 as builder-go
 ARG TARGETPLATFORM
 WORKDIR /workspace
-COPY --from=builder-rust /workspace/target/release/libtokenizers.a .
 COPY ./release .
 COPY ./test/data ./test/data
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/var/cache/go,id=${TARGETPLATFORM} \
-    CGO_ENABLED=1 CGO_LDFLAGS="-Wl,--copy-dt-needed-entries" go run main.go
+RUN go mod download
+COPY --from=builder-rust \
+    /workspace/target/release/libtokenizers.a \
+    /go/pkg/mod/github.com/daulet/tokenizers@v0.6.0/libtokenizers.a
+RUN go run main.go

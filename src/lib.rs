@@ -17,7 +17,7 @@ pub struct Buffer {
 pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
     let tokenizer = Tokenizer::from_bytes(bytes_slice).expect("failed to create tokenizer");
-    return Box::into_raw(Box::new(tokenizer));
+    Box::into_raw(Box::new(tokenizer))
 }
 
 #[no_mangle]
@@ -33,8 +33,8 @@ pub extern "C" fn from_bytes_with_truncation(bytes: *const u8, len: u32, max_len
                 _ => panic!("invalid truncation direction"),
             },
             ..Default::default()
-        })).to_owned().into();
-    return Box::into_raw(Box::new(tokenizer));
+        })).unwrap().to_owned().into();
+    Box::into_raw(Box::new(tokenizer))
 }
 
 #[no_mangle]
@@ -70,11 +70,12 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, o
         tokenizer = ptr.cast::<Tokenizer>().as_ref().expect("failed to cast tokenizer");
     }
     let message_cstr = unsafe { CStr::from_ptr(message) };
-    let message = message_cstr.to_str().unwrap();
+    let message = message_cstr.to_str();
+    if message.is_err() {
+        return Buffer { ids: ptr::null_mut(), tokens: ptr::null_mut(), len: 0, type_ids: ptr::null_mut(), special_tokens_mask: ptr::null_mut(), attention_mask: ptr::null_mut() };
+    }
 
-    // we always return token ids unlike other attributes in order to reduce the performance cost of manipulating the other attributes
-    // if it is not explicitly requested by the client.
-    let encoding = tokenizer.encode(message, options.add_special_tokens).expect("failed to encode input");
+    let encoding = tokenizer.encode(message.unwrap(), options.add_special_tokens).expect("failed to encode input");
     let mut vec_ids = encoding.get_ids().to_vec();
     vec_ids.shrink_to_fit();
     let ids = vec_ids.as_mut_ptr();
@@ -127,9 +128,11 @@ pub extern "C" fn decode(ptr: *mut libc::c_void, ids: *const u32, len: u32, skip
     }
     let ids_slice = unsafe { std::slice::from_raw_parts(ids, len as usize) };
 
-    let string = tokenizer.decode(ids_slice.to_vec(), skip_special_tokens).expect("failed to decode input");
-    let c_string = std::ffi::CString::new(string).unwrap();
-    c_string.into_raw()
+    let string = tokenizer.decode(ids_slice, skip_special_tokens).expect("failed to decode input");
+    match std::ffi::CString::new(string) {
+        Ok(c_string) => c_string.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
 }
 
 #[no_mangle]
@@ -146,7 +149,9 @@ pub extern "C" fn free_tokenizer(ptr: *mut ::libc::c_void) {
     if ptr.is_null() {
         return;
     }
-    ptr.cast::<Tokenizer>();
+    unsafe {
+        drop(Box::from_raw(ptr.cast::<Tokenizer>()));
+    }
 }
 
 #[no_mangle]

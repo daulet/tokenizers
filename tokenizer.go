@@ -82,16 +82,12 @@ func uintVecToSlice(arrPtr *C.uint, len int) []uint32 {
 	return slice
 }
 
-func CBool(b bool) C.bool {
-	return C.bool(b)
-}
-
 func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string) {
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
 	options := EncodeOptions{
-		AddSpecialTokens: CBool(addSpecialTokens),
-		ReturnTokens:     CBool(true),
+		AddSpecialTokens: C.bool(addSpecialTokens),
+		ReturnTokens:     C.bool(true),
 	}
 	res := C.encode(t.tokenizer, cStr, (*C.struct_EncodeOptions)(unsafe.Pointer(&options)))
 	len := int(res.len)
@@ -114,34 +110,34 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []strin
 
 func WithReturnAllAttributes() EncodeOption {
 	return func(eo *EncodeOptions) {
-		eo.ReturnTypeIDs = CBool(true)
-		eo.ReturnSpecialTokensMask = CBool(true)
-		eo.ReturnAttentionMask = CBool(true)
-		eo.ReturnTokens = CBool(true)
+		eo.ReturnTypeIDs = C.bool(true)
+		eo.ReturnSpecialTokensMask = C.bool(true)
+		eo.ReturnAttentionMask = C.bool(true)
+		eo.ReturnTokens = C.bool(true)
 	}
 }
 
 func WithReturnTypeIDs() EncodeOption {
 	return func(eo *EncodeOptions) {
-		eo.ReturnTypeIDs = CBool(true)
+		eo.ReturnTypeIDs = C.bool(true)
 	}
 }
 
 func WithReturnSpecialTokensMask() EncodeOption {
 	return func(eo *EncodeOptions) {
-		eo.ReturnSpecialTokensMask = CBool(true)
+		eo.ReturnSpecialTokensMask = C.bool(true)
 	}
 }
 
 func WithReturnTokens() EncodeOption {
 	return func(eo *EncodeOptions) {
-		eo.ReturnTokens = CBool(true)
+		eo.ReturnTokens = C.bool(true)
 	}
 }
 
 func WithReturnAttentionMask() EncodeOption {
 	return func(eo *EncodeOptions) {
-		eo.ReturnAttentionMask = CBool(true)
+		eo.ReturnAttentionMask = C.bool(true)
 	}
 }
 
@@ -150,7 +146,7 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 	defer C.free(unsafe.Pointer(cStr))
 
 	encOptions := EncodeOptions{
-		AddSpecialTokens: CBool(addSpecialTokens),
+		AddSpecialTokens: C.bool(addSpecialTokens),
 	}
 	for _, opt := range opts {
 		opt(&encOptions)

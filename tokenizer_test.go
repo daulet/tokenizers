@@ -113,8 +113,18 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 			addSpecial: false,
 		},
 		{
-			name:       "empty string with special tokens",
-			str:        "",
+			name:                  "empty string with special tokens",
+			str:                   "",
+			addSpecial:            true,
+			wantTypeIDs:           []uint32{0x0, 0x0},
+			wantSpecialTokensMask: []uint32{0x1, 0x1},
+			wantAttentionMask:     []uint32{0x1, 0x1},
+			wantIDs:               []uint32{101, 102},
+			wantTokens:            []string{"[CLS]", "[SEP]"},
+		},
+		{
+			name:       "invalid utf8 string",
+			str:        "\x91D",
 			addSpecial: false,
 		},
 	}
@@ -348,6 +358,15 @@ func TestDecode(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestDecodeInvalidString(t *testing.T) {
+	tk, err := tokenizers.FromFile("test/data/cohere-tokenizer.json")
+	require.NoError(t, err)
+	defer tk.Close()
+
+	str := tk.Decode([]uint32{196}, true)
+	assert.Empty(t, str)
 }
 
 func TestVocabSize(t *testing.T) {
