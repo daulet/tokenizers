@@ -57,3 +57,7 @@ BenchmarkDecodeNTokens-10    	65191378	     211.0 ns/op	       7 B/op	       0 a
 PASS
 ok  	github.com/daulet/tokenizers	126.681s
 ```
+
+## Contributing
+
+Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for information on how to contribute a PR to this project.
