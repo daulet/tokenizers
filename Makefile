@@ -1,7 +1,7 @@
 build:
 	@cargo build --release
 	@cp target/release/libtokenizers.a .
-	@go build .
+	@go build -tags tokenizers_srcdir_relative .
 
 build-example:
 	@docker build -f ./example/Dockerfile . -t tokenizers-example
