@@ -6,6 +6,12 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 `make build` to build `libtokenizers.a` that you need to run your application that uses bindings.
 
+To use `libtokenizers.a` in your go application, either:
+* Place `libtokenizers.a` in /usr/lib/, and compile your app as usual with `go build`.
+* Place `libtokenizers.a` in the go source directory of the tokenizer module 
+(e.g. /home/user/go/pkg/mod/github.com/daulet/tokenizers@v0.6.1/), and compile with
+`go build -tags tokenizers_srcdir_relative`.
+
 ### Using pre-built binaries
 
 Build your Go application using pre-built native binaries: `docker build --platform=linux/amd64 -f example/Dockerfile .`
