@@ -90,7 +90,7 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, o
         std::mem::forget(vec_type_ids);
     }
 
-    let mut tokens: *mut *mut i8 = ptr::null_mut();
+    let mut tokens: *mut *mut libc::c_char = ptr::null_mut();
     if options.return_tokens {
         let mut vec_tokens = encoding.get_tokens()
             .to_vec().into_iter()
@@ -180,7 +180,7 @@ pub extern "C" fn free_buffer(buf: Buffer) {
         unsafe {
             let strings = Vec::from_raw_parts(buf.tokens, buf.len, buf.len);
             for s in strings {
-                drop(std::ffi::CString::from_raw(s));
+                drop(std::ffi::CString::from_raw(s.cast::<libc::c_char>()));
             }   
         }
     }

@@ -11,10 +11,13 @@ RUN cargo build --release
 FROM golang:1.21 as builder-go
 ARG TARGETPLATFORM
 WORKDIR /workspace
-COPY ./release .
-COPY ./test/data ./test/data
-RUN go mod download
+COPY ./release/go.mod   .
+COPY ./release/main.go  .
+# can't rely on tokenizers module because latest release doesn't include recent changes
+COPY tokenizer.go       ./tokenizers/
+COPY tokenizers.h       ./tokenizers/
 COPY --from=builder-rust \
     /workspace/target/release/libtokenizers.a \
-    /go/pkg/mod/github.com/daulet/tokenizers@v0.6.0/libtokenizers.a
-RUN go run main.go
+    ./tokenizers/
+COPY ./test/data        ./test/data
+RUN go run .
