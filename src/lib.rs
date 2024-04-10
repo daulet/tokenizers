@@ -4,6 +4,11 @@ use std::ptr;
 use tokenizers::tokenizer::Tokenizer;
 
 #[repr(C)]
+pub struct TokenizerOptions {
+    encode_special_tokens: bool,
+}
+
+#[repr(C)]
 pub struct Buffer {
     ids: *mut u32,
     type_ids: *mut u32,
@@ -14,12 +19,14 @@ pub struct Buffer {
 }
 
 #[no_mangle]
-pub extern "C" fn from_bytes(bytes: *const u8, len: u32) -> *mut Tokenizer {
+pub extern "C" fn from_bytes(bytes: *const u8, len: u32, opts: &TokenizerOptions) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
-    let tokenizer = Tokenizer::from_bytes(bytes_slice).expect("failed to create tokenizer");
+    let mut tokenizer = Tokenizer::from_bytes(bytes_slice).expect("failed to create tokenizer");
+    tokenizer.set_encode_special_tokens(opts.encode_special_tokens);
     Box::into_raw(Box::new(tokenizer))
 }
 
+// TODO merge with from_bytes and pass truncation params as an argument to TokenizerOptions
 #[no_mangle]
 pub extern "C" fn from_bytes_with_truncation(bytes: *const u8, len: u32, max_len: usize, dir: u8) -> *mut Tokenizer {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };

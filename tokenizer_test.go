@@ -144,6 +144,23 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 	}
 }
 
+func TestEncodeSpecialTokens(t *testing.T) {
+	tk, err := tokenizers.FromBytes(embeddedBytes)
+	require.NoError(t, err)
+	// special tokens are not encoded by default,
+	// meaning if input matches a special token, encoding will include the special token
+	ids, _ := tk.Encode("[CLS]fox[SEP]", false)
+	assert.Equal(t, []uint32{101, 193284, 102}, ids)
+	tk.Close()
+
+	tk, err = tokenizers.FromBytes(embeddedBytes, tokenizers.WithEncodeSpecialTokens())
+	require.NoError(t, err)
+	ids, _ = tk.Encode("[CLS]fox[SEP]", false)
+	// assert that special tokens 101 and 102 are not present
+	assert.Equal(t, []uint32{164, 304910, 166, 193284, 164, 211703, 166}, ids)
+	tk.Close()
+}
+
 func TestEncodeOptions(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)
