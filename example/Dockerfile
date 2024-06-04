@@ -8,6 +8,6 @@ RUN curl -fsSL https://github.com/daulet/tokenizers/releases/download/${VERSION}
 COPY ./example .
 COPY ./test/data ./test/data
 RUN go mod download
-RUN mv ./libtokenizers.a /go/pkg/mod/github.com/daulet/tokenizers@${VERSION}/libtokenizers.a
+RUN mv ./libtokenizers.a /go/pkg/mod/github.com/daulet/tokenizers@${VERSION}/lib/$(echo ${TARGETPLATFORM} | tr / -)/libtokenizers.a
 # mounting Go cache won't work since we mutate it above
 RUN go run main.go
