@@ -4,13 +4,11 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 ## Installation
 
-`make build` to build `libtokenizers.a` that you need to run your application that uses bindings.
+`make build` to build `libtokenizers.a` that you need to run your application that uses bindings. In addition, you need to inform the linker where to find that static library: `go run -ldflags="-extldflags '-L./path/to/libtokenizers.a'" .` or just add it to the `CGO_LDFLAGS` environment variable: `CGO_LDFLAGS="-L./path/to/libtokenizers.a"` to avoid specifying it every time.
 
 ### Using pre-built binaries
 
-Build your Go application using pre-built native binaries: `docker build --platform=linux/amd64 -f example/Dockerfile .`
-
-Available binaries:
+If you don't want to install Rust toolchain, build it in docker: `docker build --platform=linux/amd64 -f release/Dockerfile .` or use prebuilt binaries from the [releases](https://github.com/daulet/tokenizers/releases) page. Prebuilt libraries are available for:
 
 * [darwin-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.darwin-arm64.tar.gz)
 * [linux-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-arm64.tar.gz)
@@ -55,7 +53,7 @@ goos: darwin
 goarch: arm64
 pkg: github.com/daulet/tokenizers
 BenchmarkEncodeNTimes-10        996556      11851 ns/op      116 B/op        6 allocs/op
-BenchmarkEncodeNChars-10      1000000000      2.446 ns/op        0 B/op        0 allocs/op
+BenchmarkEncodeNChars-10    1000000000      2.446 ns/op        0 B/op        0 allocs/op
 BenchmarkDecodeNTimes-10       7286056       1657 ns/op      112 B/op        4 allocs/op
 BenchmarkDecodeNTokens-10     65191378      211.0 ns/op        7 B/op        0 allocs/op
 PASS
