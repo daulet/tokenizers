@@ -8,7 +8,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 libc = "0.2.140"
-tokenizers = {version = "0.15.2" }
+tokenizers = {version = "0.19.1" }
 
 [registries.crates-io]
 # speed up "Updating crates.io index"
