@@ -52,10 +52,10 @@ go test . -bench=. -benchmem -benchtime=10s
 goos: darwin
 goarch: arm64
 pkg: github.com/daulet/tokenizers
-BenchmarkEncodeNTimes-10        996556      11851 ns/op      116 B/op        6 allocs/op
-BenchmarkEncodeNChars-10    1000000000      2.446 ns/op        0 B/op        0 allocs/op
-BenchmarkDecodeNTimes-10       7286056       1657 ns/op      112 B/op        4 allocs/op
-BenchmarkDecodeNTokens-10     65191378      211.0 ns/op        7 B/op        0 allocs/op
+enchmarkEncodeNTimes-10     	    955290	     12670 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	     2.281 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeNTimes-10     	   2795283	      4337 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTokens-10    	  19081221	     631.1 ns/op	       7 B/op	       0 allocs/op
 PASS
 ok   github.com/daulet/tokenizers 126.681s
 ```
