@@ -46,7 +46,7 @@ fmt.Println(tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true
 
 ## Benchmarks
 
-Decoding overhead (due to CGO) is between negligible and 9% depending on the benchmark.
+Decoding overhead (due to CGO and extra allocations) is between 2% to 9% depending on the benchmark.
 
 ```bash
 go test . -bench=. -benchmem -benchtime=10s

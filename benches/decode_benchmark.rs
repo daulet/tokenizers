@@ -26,8 +26,11 @@ fn bench_decode_n_tokens(c: &mut Criterion) {
             let tokens: Vec<u32> = (0..iters).map(|_| rng.gen_range(0..max_token_id) as u32).collect();
 
             let start = Instant::now();
-            decode(&tokenizer, black_box(&tokens), black_box(true));
-            start.elapsed()
+            let result = decode(&tokenizer, black_box(&tokens), black_box(true));
+            let duration = start.elapsed();
+            // we do this to exclude drop time for the result
+            _ = result;
+            duration
         })}
     );
 }
