@@ -46,6 +46,8 @@ fmt.Println(tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true
 
 ## Benchmarks
 
+Decoding overhead (due to CGO) is between negligible and 9% depending on the benchmark.
+
 ```bash
 go test . -bench=. -benchmem -benchtime=10s
 
@@ -58,6 +60,23 @@ BenchmarkDecodeNTimes-10     	 2758072	      4345 ns/op	      96 B/op	       3 a
 BenchmarkDecodeNTokens-10    	18689725	     648.5 ns/op	       7 B/op	       0 allocs/op
 PASS
 ok   github.com/daulet/tokenizers 126.681s
+```
+
+Run equivalent Rust tests with `cargo bench`.
+
+```bash
+decode_n_times          time:   [3.9812 µs 3.9874 µs 3.9939 µs]
+                        change: [-0.4103% -0.1338% +0.1275%] (p = 0.33 > 0.05)
+                        No change in performance detected.
+Found 7 outliers among 100 measurements (7.00%)
+  7 (7.00%) high mild
+
+decode_n_tokens         time:   [651.72 ns 661.73 ns 675.78 ns]
+                        change: [+0.3504% +2.0016% +3.5507%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
 ```
 
 ## Contributing

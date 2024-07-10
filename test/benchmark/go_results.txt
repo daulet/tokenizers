@@ -1,0 +1,36 @@
+Run with `go test -bench=Decode -count=10 -run=^\$ > test/benchmark/go_results.txt` then `benchstat test/benchmark/go_results.txt`
+
+goos: darwin
+goarch: arm64
+pkg: github.com/daulet/tokenizers
+BenchmarkDecodeNTimes-10     	  239250	      4343 ns/op
+BenchmarkDecodeNTimes-10     	  271682	      4356 ns/op
+BenchmarkDecodeNTimes-10     	  274546	      4346 ns/op
+BenchmarkDecodeNTimes-10     	  271051	      4368 ns/op
+BenchmarkDecodeNTimes-10     	  272458	      4372 ns/op
+BenchmarkDecodeNTimes-10     	  271284	      4350 ns/op
+BenchmarkDecodeNTimes-10     	  272586	      4350 ns/op
+BenchmarkDecodeNTimes-10     	  271552	      4358 ns/op
+BenchmarkDecodeNTimes-10     	  268934	      4349 ns/op
+BenchmarkDecodeNTimes-10     	  273238	      4364 ns/op
+BenchmarkDecodeNTokens-10    	 1840972	       657.1 ns/op
+BenchmarkDecodeNTokens-10    	 1817886	       636.0 ns/op
+BenchmarkDecodeNTokens-10    	 1884613	       641.0 ns/op
+BenchmarkDecodeNTokens-10    	 1823654	       637.8 ns/op
+BenchmarkDecodeNTokens-10    	 1883685	       646.7 ns/op
+BenchmarkDecodeNTokens-10    	 1852138	       642.2 ns/op
+BenchmarkDecodeNTokens-10    	 1852321	       643.3 ns/op
+BenchmarkDecodeNTokens-10    	 1850312	       649.7 ns/op
+BenchmarkDecodeNTokens-10    	 1838618	       640.8 ns/op
+BenchmarkDecodeNTokens-10    	 1881645	       642.7 ns/op
+PASS
+ok  	github.com/daulet/tokenizers	31.929s
+
+goos: darwin
+goarch: arm64
+pkg: github.com/daulet/tokenizers
+                 │ test/benchmark/go_results.txt │
+                 │            sec/op             │
+DecodeNTimes-10                      4.353µ ± 0%
+DecodeNTokens-10                     642.5n ± 1%
+geomean                              1.672µ

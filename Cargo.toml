@@ -10,6 +10,10 @@ crate-type = ["staticlib"]
 libc = "0.2.140"
 tokenizers = {version = "0.19.1" }
 
-[registries.crates-io]
-# speed up "Updating crates.io index"
-protocol = "sparse"
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+rand = "0.8.5"
+
+[[bench]]
+name = "decode_benchmark"
+harness = false
