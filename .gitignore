@@ -6,3 +6,6 @@ target
 
 # Bazel
 /bazel-*
+
+# Python
+.env
