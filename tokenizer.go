@@ -105,11 +105,14 @@ func uintVecToSlice(arrPtr *C.uint, len int) []uint32 {
 	return slice
 }
 
-func offsetVecToSlice(arrPtr *C.struct_Tuple, len int) []Offset {
-	arr := unsafe.Slice(arrPtr, len)
-	slice := make([]Offset, len)
-	for i, v := range arr {
-		slice[i] = Offset{uint(v.a), uint(v.b)}
+func offsetVecToSlice(arrPtr *C.size_t, tokenLength int) []Offset {
+	arr := unsafe.Slice(arrPtr, tokenLength*2)
+	slice := make([]Offset, tokenLength)
+	counter := 0
+	for i := 0; i < tokenLength; i++ {
+		offset := Offset{uint(arr[counter]), uint(arr[counter+1])}
+		slice[i] = offset
+		counter = counter + 2
 	}
 	return slice
 }

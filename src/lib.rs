@@ -15,7 +15,7 @@ pub struct Buffer {
     special_tokens_mask: *mut u32,
     attention_mask: *mut u32,
     tokens: *mut *mut libc::c_char,
-    offsets: *mut (usize, usize),
+    offsets: *mut usize,
     len: usize,
 }
 
@@ -126,9 +126,14 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, o
         std::mem::forget(vec_attention_mask);
     }
 
-    let mut offsets: *mut (usize, usize) = ptr::null_mut();
+    let mut offsets: *mut usize = ptr::null_mut();
     if options.return_offsets {
-        let mut vec_offsets = encoding.get_offsets().to_vec();
+        let vec_offsets_tuples = encoding.get_offsets().to_vec();
+        let mut vec_offsets = Vec::with_capacity(vec_offsets_tuples.len() * 2);
+        for i in vec_offsets_tuples {
+            vec_offsets.push(i.0);
+            vec_offsets.push(i.1);
+        }
         vec_offsets.shrink_to_fit();
         offsets = vec_offsets.as_mut_ptr();
         std::mem::forget(vec_offsets);
@@ -191,6 +196,11 @@ pub extern "C" fn free_buffer(buf: Buffer) {
     if !buf.attention_mask.is_null() {
         unsafe {
             Vec::from_raw_parts(buf.attention_mask, buf.len, buf.len);
+        }
+    }
+    if !buf.offsets.is_null() {
+        unsafe {
+            Vec::from_raw_parts(buf.offsets, buf.len*2, buf.len*2);
         }
     }
     if !buf.tokens.is_null() {

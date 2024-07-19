@@ -1,12 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// maps to a rust tuple of usize
-struct Tuple {
-  size_t a;
-  size_t b;
-};
-
 struct EncodeOptions {
   bool add_special_token;
   bool return_type_ids;
@@ -26,7 +20,7 @@ struct Buffer {
   uint32_t *special_tokens_mask;
   uint32_t *attention_mask;
   char *tokens;
-  struct Tuple* offsets;
+  size_t *offsets;
   uint32_t len;
 };
 
