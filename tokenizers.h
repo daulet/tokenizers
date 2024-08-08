@@ -7,6 +7,7 @@ struct EncodeOptions {
   bool return_tokens;
   bool return_special_tokens_mask;
   bool return_attention_mask;
+  bool return_offsets;
 };
 
 struct TokenizerOptions {
@@ -19,6 +20,7 @@ struct Buffer {
   uint32_t *special_tokens_mask;
   uint32_t *attention_mask;
   char *tokens;
+  size_t *offsets;
   uint32_t len;
 };
 
