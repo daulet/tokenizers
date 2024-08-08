@@ -226,7 +226,6 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 
 	if encOptions.ReturnOffsets && res.offsets != nil {
 		encoding.Offsets = offsetVecToSlice(res.offsets, len)
-		C.free(unsafe.Pointer(res.offsets))
 	}
 
 	return encoding
