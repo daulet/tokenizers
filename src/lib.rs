@@ -15,6 +15,7 @@ pub struct Buffer {
     special_tokens_mask: *mut u32,
     attention_mask: *mut u32,
     tokens: *mut *mut libc::c_char,
+    offsets: *mut usize,
     len: usize,
 }
 
@@ -68,6 +69,7 @@ pub struct EncodeOptions {
     return_tokens: bool,
     return_special_tokens_mask: bool,
     return_attention_mask: bool,
+    return_offsets: bool,
 }
 
 #[no_mangle]
@@ -79,7 +81,7 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, o
     let message_cstr = unsafe { CStr::from_ptr(message) };
     let message = message_cstr.to_str();
     if message.is_err() {
-        return Buffer { ids: ptr::null_mut(), tokens: ptr::null_mut(), len: 0, type_ids: ptr::null_mut(), special_tokens_mask: ptr::null_mut(), attention_mask: ptr::null_mut() };
+        return Buffer { ids: ptr::null_mut(), tokens: ptr::null_mut(), len: 0, type_ids: ptr::null_mut(), special_tokens_mask: ptr::null_mut(), attention_mask: ptr::null_mut() , offsets: ptr::null_mut()};
     }
 
     let encoding = tokenizer.encode(message.unwrap(), options.add_special_tokens).expect("failed to encode input");
@@ -124,7 +126,20 @@ pub extern "C" fn encode(ptr: *mut libc::c_void, message: *const libc::c_char, o
         std::mem::forget(vec_attention_mask);
     }
 
-    Buffer { ids, type_ids, special_tokens_mask, attention_mask, tokens, len }
+    let mut offsets: *mut usize = ptr::null_mut();
+    if options.return_offsets {
+        let vec_offsets_tuples = encoding.get_offsets().to_vec();
+        let mut vec_offsets = Vec::with_capacity(vec_offsets_tuples.len() * 2);
+        for i in vec_offsets_tuples {
+            vec_offsets.push(i.0);
+            vec_offsets.push(i.1);
+        }
+        vec_offsets.shrink_to_fit();
+        offsets = vec_offsets.as_mut_ptr();
+        std::mem::forget(vec_offsets);
+    }
+
+    Buffer { ids, type_ids, special_tokens_mask, attention_mask, tokens, offsets, len }
 }
 
 #[no_mangle]
@@ -181,6 +196,11 @@ pub extern "C" fn free_buffer(buf: Buffer) {
     if !buf.attention_mask.is_null() {
         unsafe {
             Vec::from_raw_parts(buf.attention_mask, buf.len, buf.len);
+        }
+    }
+    if !buf.offsets.is_null() {
+        unsafe {
+            Vec::from_raw_parts(buf.offsets, buf.len*2, buf.len*2);
         }
     }
     if !buf.tokens.is_null() {

@@ -35,6 +35,7 @@ func TestEmbeddingConfig(t *testing.T) {
 		wantTokens            []string
 		wantSpecialTokensMask []uint32
 		wantAttentionMask     []uint32
+		wantOffsets           []tokenizers.Offset
 	}{
 		{
 			name:                  "without special tokens",
@@ -45,6 +46,7 @@ func TestEmbeddingConfig(t *testing.T) {
 			wantTokens:            []string{"brown", "fox", "jumps", "over", "the", "lazy", "dog"},
 			wantSpecialTokensMask: []uint32{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 			wantAttentionMask:     []uint32{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},
+			wantOffsets:           []tokenizers.Offset{{0x0, 0x5}, {0x6, 0x9}, {0xa, 0xf}, {0x10, 0x14}, {0x15, 0x18}, {0x19, 0x1d}, {0x1e, 0x21}},
 		},
 		{
 			name:                  "with special tokens",
@@ -55,6 +57,7 @@ func TestEmbeddingConfig(t *testing.T) {
 			wantTokens:            []string{"[CLS]", "brown", "fox", "jumps", "over", "the", "lazy", "dog", "[SEP]"},
 			wantSpecialTokensMask: []uint32{0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1},
 			wantAttentionMask:     []uint32{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},
+			wantOffsets:           []tokenizers.Offset{{0x0, 0x0}, {0x0, 0x5}, {0x6, 0x9}, {0xa, 0xf}, {0x10, 0x14}, {0x15, 0x18}, {0x19, 0x1d}, {0x1e, 0x21}, {0x0, 0x0}},
 		},
 	}
 	for _, tt := range tests {
@@ -65,6 +68,7 @@ func TestEmbeddingConfig(t *testing.T) {
 			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
 			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, tt.wantOffsets, encoding.Offsets, "wrong offsets")
 
 			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
 			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
@@ -86,6 +90,7 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 		wantTokens            []string
 		wantSpecialTokensMask []uint32
 		wantAttentionMask     []uint32
+		wantOffsets           []tokenizers.Offset
 	}{
 		{
 			name:                  "without special tokens",
@@ -96,6 +101,7 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 			wantTokens:            []string{"brown", "fox", "jumps", "over", "the", "lazy", "dog"},
 			wantSpecialTokensMask: []uint32{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 			wantAttentionMask:     []uint32{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},
+			wantOffsets:           []tokenizers.Offset{{0x0, 0x5}, {0x6, 0x9}, {0xa, 0xf}, {0x10, 0x14}, {0x15, 0x18}, {0x19, 0x1d}, {0x1e, 0x21}},
 		},
 		{
 			name:                  "with special tokens",
@@ -106,6 +112,7 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 			wantTokens:            []string{"[CLS]", "brown", "fox", "jumps", "over", "the", "lazy", "dog", "[SEP]"},
 			wantSpecialTokensMask: []uint32{0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1},
 			wantAttentionMask:     []uint32{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},
+			wantOffsets:           []tokenizers.Offset{{0x0, 0x0}, {0x0, 0x5}, {0x6, 0x9}, {0xa, 0xf}, {0x10, 0x14}, {0x15, 0x18}, {0x19, 0x1d}, {0x1e, 0x21}, {0x0, 0x0}},
 		},
 		{
 			name:       "empty string",
@@ -121,6 +128,7 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 			wantAttentionMask:     []uint32{0x1, 0x1},
 			wantIDs:               []uint32{101, 102},
 			wantTokens:            []string{"[CLS]", "[SEP]"},
+			wantOffsets:           []tokenizers.Offset{{0x0, 0x0}, {0x0, 0x0}},
 		},
 		{
 			name:       "invalid utf8 string",
@@ -136,6 +144,7 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
 			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, tt.wantOffsets, encoding.Offsets, "wrong offsets mask")
 
 			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
 			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
@@ -174,6 +183,7 @@ func TestEncodeOptions(t *testing.T) {
 		wantTokens            []string
 		wantSpecialTokensMask []uint32
 		wantAttentionMask     []uint32
+		wantOffsets           []tokenizers.Offset
 	}{
 		{
 			name:                  "without special tokens",
@@ -184,6 +194,7 @@ func TestEncodeOptions(t *testing.T) {
 			wantTokens:            []string{"brown", "fox", "jumps", "over", "the", "lazy", "dog"},
 			wantSpecialTokensMask: []uint32{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 			wantAttentionMask:     []uint32{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},
+			wantOffsets:           []tokenizers.Offset{{0x0, 0x5}, {0x6, 0x9}, {0xa, 0xf}, {0x10, 0x14}, {0x15, 0x18}, {0x19, 0x1d}, {0x1e, 0x21}},
 		},
 	}
 	for _, tt := range tests {
@@ -194,6 +205,7 @@ func TestEncodeOptions(t *testing.T) {
 			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
 			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, []tokenizers.Offset(nil), encoding.Offsets, "wrong offsets")
 
 			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnTokens())
 			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
@@ -201,6 +213,7 @@ func TestEncodeOptions(t *testing.T) {
 			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
 			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, []tokenizers.Offset(nil), encoding.Offsets, "wrong offsets")
 
 			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnTypeIDs())
 			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
@@ -208,6 +221,7 @@ func TestEncodeOptions(t *testing.T) {
 			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
 			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, []tokenizers.Offset(nil), encoding.Offsets, "wrong offsets")
 
 			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnSpecialTokensMask())
 			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
@@ -215,6 +229,7 @@ func TestEncodeOptions(t *testing.T) {
 			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
 			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, []tokenizers.Offset(nil), encoding.Offsets, "wrong offsets")
 
 			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnAttentionMask())
 			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
@@ -222,6 +237,15 @@ func TestEncodeOptions(t *testing.T) {
 			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
 			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, []tokenizers.Offset(nil), encoding.Offsets, "wrong offsets")
+
+			encoding = tk.EncodeWithOptions(tt.str, tt.addSpecial, tokenizers.WithReturnOffsets())
+			assert.Equal(t, tt.wantIDs, encoding.IDs, "wrong ids")
+			assert.Equal(t, []uint32(nil), encoding.TypeIDs, "wrong type ids")
+			assert.Equal(t, []string(nil), encoding.Tokens, "wrong tokens")
+			assert.Equal(t, []uint32(nil), encoding.SpecialTokensMask, "wrong special tokens mask")
+			assert.Equal(t, []uint32(nil), encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, tt.wantOffsets, encoding.Offsets, "wrong offsets")
 		})
 	}
 }
@@ -300,6 +324,7 @@ func TestEncodeWithPadding(t *testing.T) {
 		wantTokens            []string
 		wantSpecialTokensMask []uint32
 		wantAttentionMask     []uint32
+		wantOffsets           []tokenizers.Offset
 	}{
 		{
 			name:                  "sentence with padding",
@@ -310,6 +335,7 @@ func TestEncodeWithPadding(t *testing.T) {
 			wantTokens:            []string{"this", "short", "sentence", "[PAD]", "[PAD]", "[PAD]", "[PAD]", "[PAD]"},
 			wantSpecialTokensMask: []uint32{0x0, 0x0, 0x0, 0x1, 0x1, 0x1, 0x1, 0x1},
 			wantAttentionMask:     []uint32{0x1, 0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0},
+			wantOffsets:           []tokenizers.Offset{{0x0, 0x4}, {0x5, 0xa}, {0xb, 0x13}, {0x0, 0x0}, {0x0, 0x0}, {0x0, 0x0}, {0x0, 0x0}, {0x0, 0x0}},
 		},
 	}
 	for _, tt := range tests {
@@ -320,6 +346,7 @@ func TestEncodeWithPadding(t *testing.T) {
 			assert.Equal(t, tt.wantTokens, encoding.Tokens, "wrong tokens")
 			assert.Equal(t, tt.wantSpecialTokensMask, encoding.SpecialTokensMask, "wrong special tokens mask")
 			assert.Equal(t, tt.wantAttentionMask, encoding.AttentionMask, "wrong attention mask")
+			assert.Equal(t, tt.wantOffsets, encoding.Offsets, "wrong offsets")
 
 			ids, tokens := tk.Encode(tt.str, tt.addSpecial)
 			assert.Equal(t, tt.wantIDs, ids, "wrong ids")
