@@ -46,6 +46,8 @@ fmt.Println(tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true
 
 ## Benchmarks
 
+`go test . -run=^\$ -bench=. -benchmem -count=10 > test/benchmark/$(git rev-parse HEAD).txt`
+
 Decoding overhead (due to CGO and extra allocations) is between 2% to 9% depending on the benchmark.
 
 ```bash
