@@ -1,5 +1,5 @@
 module github.com/daulet/tokenizers/example
 
-go 1.21
+go 1.22
 
-require github.com/daulet/tokenizers v0.6.0
+require github.com/daulet/tokenizers v0.9.0

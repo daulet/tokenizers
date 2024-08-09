@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	tk, err := tokenizers.FromFile("../test/data/bert-base-uncased.json")
 	if err != nil {
 		panic(err)
 	}
