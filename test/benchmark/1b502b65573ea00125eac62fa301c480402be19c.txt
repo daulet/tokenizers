@@ -1,0 +1,45 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/daulet/tokenizers
+BenchmarkEncodeNTimes-10     	   95174	     12667 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   94437	     12580 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   93362	     12583 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   94240	     13372 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   92844	     12868 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   92984	     12766 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   92055	     12654 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   91874	     13204 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   93130	     12686 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNTimes-10     	   93288	     12528 ns/op	     232 B/op	      12 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.374 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.651 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         1.993 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.169 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.282 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.348 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.028 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.013 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         2.200 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars-10     	1000000000	         1.957 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeNTimes-10     	  250281	      4474 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  268866	      4501 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  260468	      4422 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  264583	      4455 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  262168	      4552 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  262182	      4455 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  262510	      4511 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  263491	      4524 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  265724	      4396 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTimes-10     	  259940	      4430 ns/op	      96 B/op	       3 allocs/op
+BenchmarkDecodeNTokens-10    	 1804423	       678.7 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1827415	       654.8 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1850868	       648.1 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1838286	       650.1 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1853236	       655.6 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1835120	       657.1 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1838400	       652.3 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1847911	       659.2 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1808113	       654.2 ns/op	       7 B/op	       0 allocs/op
+BenchmarkDecodeNTokens-10    	 1820958	       666.3 ns/op	       7 B/op	       0 allocs/op
+PASS
+ok  	github.com/daulet/tokenizers	245.425s
