@@ -3,6 +3,7 @@
 FROM rust:1.71 as builder-rust
 ARG TARGETPLATFORM
 WORKDIR /workspace
+COPY ./benches ./benches
 COPY ./src ./src
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
