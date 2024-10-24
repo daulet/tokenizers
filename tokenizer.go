@@ -13,10 +13,29 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"unsafe"
 )
 
-const WANT_VERSION = "1.20.2"
+const (
+	WANT_VERSION = "1.20.2"
+
+	baseURL = "https://huggingface.co"
+)
+
+// List of necessary tokenizer files and their mandatory status.
+// True means mandatory, false means optional.
+var tokenizerFiles = map[string]bool{
+	"tokenizer.json":          true,
+	"vocab.txt":               false,
+	"merges.txt":              false,
+	"special_tokens_map.json": false,
+	"added_tokens.json":       false,
+}
 
 func init() {
 	version := C.version()
@@ -76,6 +95,155 @@ func FromFile(path string) (*Tokenizer, error) {
 		return nil, err
 	}
 	return &Tokenizer{tokenizer: tokenizer}, nil
+}
+
+// LoadTokenizerFromHuggingFace downloads necessary files and initializes the tokenizer.
+// Parameters:
+//   - modelID: The Hugging Face model identifier (e.g., "bert-base-uncased").
+//   - destination: Optional. If provided and not nil, files will be downloaded to this folder.
+//     If nil, a temporary directory will be used.
+//   - authToken: Optional. If provided and not nil, it will be used to authenticate requests.
+func LoadTokenizerFromHuggingFace(modelID string, destination, authToken *string) (*Tokenizer, error) {
+	if strings.TrimSpace(modelID) == "" {
+		return nil, fmt.Errorf("modelID cannot be empty")
+	}
+
+	// Construct the model URL
+	modelURL := fmt.Sprintf("%s/%s/resolve/main", baseURL, modelID)
+
+	// Determine the download directory
+	var downloadDir string
+	if destination != nil && *destination != "" {
+		downloadDir = *destination
+		// Create the destination directory if it doesn't exist
+		err := os.MkdirAll(downloadDir, os.ModePerm)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create destination directory %s: %w", downloadDir, err)
+		}
+	} else {
+		// Create a temporary directory
+		tmpDir, err := os.MkdirTemp("", "huggingface-tokenizer-*")
+		if err != nil {
+			return nil, fmt.Errorf("error creating temporary directory: %w", err)
+		}
+		downloadDir = tmpDir
+	}
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(tokenizerFiles))
+
+	// Mutex for synchronized logging
+	var logMutex sync.Mutex
+
+	// Download each tokenizer file concurrently
+	for filename, isMandatory := range tokenizerFiles {
+		wg.Add(1)
+		go func(fn string, mandatory bool) {
+			defer wg.Done()
+			fileURL := fmt.Sprintf("%s/%s", modelURL, fn)
+			destPath := filepath.Join(downloadDir, fn)
+			err := downloadFile(fileURL, destPath, authToken)
+			if err != nil {
+				if mandatory {
+					// If the file is mandatory, report an error
+					errChan <- fmt.Errorf("failed to download mandatory file %s: %w", fn, err)
+				} else {
+					// Optional files: log warning and continue
+					logMutex.Lock()
+					fmt.Printf("Warning: failed to download optional file %s: %v\n", fn, err)
+					logMutex.Unlock()
+				}
+			}
+		}(filename, isMandatory)
+	}
+
+	// Wait for all downloads to complete
+	wg.Wait()
+	close(errChan)
+
+	// Check for errors during downloads
+	for downloadErr := range errChan {
+		if downloadErr != nil {
+			// Clean up the directory and return the error
+			cleanupDirectory(downloadDir)
+			return nil, downloadErr
+		}
+	}
+
+	// Verify that tokenizer.json exists
+	tokenizerPath := filepath.Join(downloadDir, "tokenizer.json")
+	if _, err := os.Stat(tokenizerPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("mandatory file tokenizer.json does not exist in %s", downloadDir)
+	}
+
+	// Initialize the tokenizer using the downloaded tokenizer.json
+	tokenizer, err := FromFile(tokenizerPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return tokenizer, nil
+}
+
+// downloadFile downloads a file from the given URL and saves it to the specified destination.
+// If authToken is provided (non-nil), it will be used for authorization.
+// Returns an error if the download fails.
+func downloadFile(url, destination string, authToken *string) error {
+	// Check if the file already exists
+	if _, err := os.Stat(destination); err == nil {
+		fmt.Printf("File %s already exists. Skipping download.\n", destination)
+		return nil
+	}
+
+	// Create the destination file
+	out, err := os.Create(destination)
+	if err != nil {
+		return fmt.Errorf("failed to create file %s: %w", destination, err)
+	}
+	defer out.Close()
+
+	// Create a new HTTP request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request for %s: %w", url, err)
+	}
+
+	// If authToken is provided, set the Authorization header
+	if authToken != nil && *authToken != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *authToken))
+	}
+
+	// Perform the HTTP request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to download from %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	// Check for successful response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download from %s: status code %d", url, resp.StatusCode)
+	}
+
+	// Write the response body to the file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write to file %s: %w", destination, err)
+	}
+
+	fmt.Printf("Successfully downloaded %s\n", destination)
+	return nil
+}
+
+// cleanupDirectory removes the specified directory and all its contents.
+func cleanupDirectory(dir string) {
+	err := os.RemoveAll(dir)
+	if err != nil {
+		fmt.Printf("Warning: failed to clean up directory %s: %v\n", dir, err)
+	} else {
+		fmt.Printf("Successfully cleaned up directory %s\n", dir)
+	}
 }
 
 func (t *Tokenizer) Close() error {
