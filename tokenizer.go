@@ -130,10 +130,7 @@ func LoadTokenizerFromHuggingFace(modelID string, destination, authToken *string
 	}
 
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(tokenizerFiles))
-
-	// Mutex for synchronized logging
-	var logMutex sync.Mutex
+	errCh := make(chan error)
 
 	// Download each tokenizer file concurrently
 	for filename, isMandatory := range tokenizerFiles {
@@ -146,12 +143,10 @@ func LoadTokenizerFromHuggingFace(modelID string, destination, authToken *string
 			if err != nil {
 				if mandatory {
 					// If the file is mandatory, report an error
-					errChan <- fmt.Errorf("failed to download mandatory file %s: %w", fn, err)
+					errCh <- fmt.Errorf("failed to download mandatory file %s: %w", fn, err)
 				} else {
 					// Optional files: log warning and continue
-					logMutex.Lock()
 					fmt.Printf("Warning: failed to download optional file %s: %v\n", fn, err)
-					logMutex.Unlock()
 				}
 			}
 		}(filename, isMandatory)
@@ -159,15 +154,13 @@ func LoadTokenizerFromHuggingFace(modelID string, destination, authToken *string
 
 	// Wait for all downloads to complete
 	wg.Wait()
-	close(errChan)
+	close(errCh)
 
 	// Check for errors during downloads
-	for downloadErr := range errChan {
-		if downloadErr != nil {
-			// Clean up the directory and return the error
-			cleanupDirectory(downloadDir)
-			return nil, downloadErr
-		}
+	for downloadErr := range errCh {
+		// Clean up the directory and return the error
+		cleanupDirectory(downloadDir)
+		return nil, downloadErr
 	}
 
 	// Verify that tokenizer.json exists
@@ -177,12 +170,7 @@ func LoadTokenizerFromHuggingFace(modelID string, destination, authToken *string
 	}
 
 	// Initialize the tokenizer using the downloaded tokenizer.json
-	tokenizer, err := FromFile(tokenizerPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return tokenizer, nil
+	return FromFile(tokenizerPath)
 }
 
 // downloadFile downloads a file from the given URL and saves it to the specified destination.
