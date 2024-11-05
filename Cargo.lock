@@ -824,16 +824,6 @@ dependencies = [
 [[package]]
 name = "tokenizers"
 version = "0.20.2"
-dependencies = [
- "criterion",
- "libc",
- "rand",
- "tokenizers 0.20.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "tokenizers"
-version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fef9821871de9277bd7d8a7568e798e775db7eede56e290b4b03f1dfb9ac6769"
 dependencies = [
@@ -861,6 +851,16 @@ dependencies = [
  "unicode-normalization-alignments",
  "unicode-segmentation",
  "unicode_categories",
+]
+
+[[package]]
+name = "tokenizers"
+version = "1.20.2"
+dependencies = [
+ "criterion",
+ "libc",
+ "rand",
+ "tokenizers 0.20.2",
 ]
 
 [[package]]

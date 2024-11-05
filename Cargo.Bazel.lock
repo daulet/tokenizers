@@ -1,5 +1,5 @@
 {
-  "checksum": "274eda904d8c182522e7565c734cf8c608671ee2bdb346dccb07c10d44904563",
+  "checksum": "8c24cec6818168bbb4b50e04f24841ad2a219f25d0f3aab050fcb832fef53eef",
   "crates": {
     "aho-corasick 1.1.2": {
       "name": "aho-corasick",
@@ -4486,13 +4486,13 @@
       },
       "license": "Apache-2.0 OR MIT"
     },
-    "tokenizers 0.20.0": {
+    "tokenizers 0.20.2": {
       "name": "tokenizers",
-      "version": "0.20.0",
+      "version": "0.20.2",
       "repository": {
         "Http": {
-          "url": "https://static.crates.io/crates/tokenizers/0.20.0/download",
-          "sha256": "c8a24d7f7d6be5b9d1377418b893ab1808af0074f5d1bb2c64784452ddd2aa70"
+          "url": "https://static.crates.io/crates/tokenizers/0.20.2/download",
+          "sha256": "fef9821871de9277bd7d8a7568e798e775db7eede56e290b4b03f1dfb9ac6769"
         }
       },
       "targets": [
@@ -4628,13 +4628,13 @@
           ],
           "selects": {}
         },
-        "version": "0.20.0"
+        "version": "0.20.2"
       },
       "license": "Apache-2.0"
     },
-    "tokenizers 0.9.0": {
+    "tokenizers 1.20.2": {
       "name": "tokenizers",
-      "version": "0.9.0",
+      "version": "1.20.2",
       "repository": null,
       "targets": [],
       "library_target_name": null,
@@ -4649,7 +4649,7 @@
               "target": "libc"
             },
             {
-              "id": "tokenizers 0.20.0",
+              "id": "tokenizers 0.20.2",
               "target": "tokenizers"
             }
           ],
@@ -4669,7 +4669,7 @@
           "selects": {}
         },
         "edition": "2021",
-        "version": "0.9.0"
+        "version": "1.20.2"
       },
       "license": null
     },
@@ -6375,7 +6375,7 @@
   },
   "binary_crates": [],
   "workspace_members": {
-    "tokenizers 0.9.0": ""
+    "tokenizers 1.20.2": ""
   },
   "conditions": {
     "aarch64-apple-darwin": [
