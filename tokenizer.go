@@ -137,7 +137,7 @@ func FromPretrained(modelID string, opts ...TokenizerConfigOption) (*Tokenizer, 
 	// Determine the download directory
 	var downloadDir string
 	if cfg.cacheDir != nil {
-		downloadDir = *cfg.cacheDir
+		downloadDir = fmt.Sprintf("%s/%s", *cfg.cacheDir, modelID)
 		// Create the destination directory if it doesn't exist
 		err := os.MkdirAll(downloadDir, os.ModePerm)
 		if err != nil {
