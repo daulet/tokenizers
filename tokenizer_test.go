@@ -2,10 +2,14 @@ package tokenizers_test
 
 import (
 	_ "embed"
-	"math/rand"
-	"testing"
-
 	"github.com/daulet/tokenizers"
+	"math/rand"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,6 +17,23 @@ import (
 
 //go:embed test/data/sentence-transformers-labse.json
 var embeddedBytes []byte
+
+type mockTransport struct {
+	server  *httptest.Server
+	modelID string
+}
+
+func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.URL.Scheme = "http"
+	req.URL.Host = strings.TrimPrefix(t.server.URL, "http://")
+
+	parts := strings.Split(req.URL.Path, "/")
+	if len(parts) > 2 {
+		req.URL.Path = "/" + t.modelID + "/resolve/main/" + parts[len(parts)-1]
+	}
+
+	return t.server.Client().Transport.RoundTrip(req)
+}
 
 // TODO test for leaks
 
@@ -471,4 +492,251 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 	text := tk.Decode(input, true)
 	// a token is one or more characters
 	assert.Greater(b, len(text), b.N)
+}
+
+func mockHuggingFaceServer(t *testing.T) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		parts := strings.Split(path, "/")
+
+		if len(parts) < 4 {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		fileName := parts[len(parts)-1]
+
+		// Check authentication for private models
+		if strings.HasPrefix(path, "private/") {
+			authHeader := r.Header.Get("Authorization")
+			if !strings.Contains(authHeader, "test-token") {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
+
+		// For nonexistent model, only return 404 for tokenizer.json
+		if strings.Contains(path, "nonexistent") {
+			if fileName == "tokenizer.json" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			// Return empty response for optional files
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("{}"))
+			return
+		}
+
+		// Handle regular file requests
+		switch fileName {
+		case "tokenizer.json":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"type": "mock_tokenizer",
+				"vocab_size": 1000,
+				"model_max_length": 512
+			}`))
+		case "vocab.txt":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("[PAD]\n[UNK]\ntest\ntoken"))
+		case "special_tokens_map.json":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"pad_token": "[PAD]",
+				"unk_token": "[UNK]"
+			}`))
+		default:
+			// Return empty response for other optional files
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("{}"))
+		}
+	}))
+}
+
+func TestFromPretrained(t *testing.T) {
+	server := mockHuggingFaceServer(t)
+	defer server.Close()
+
+	tests := []struct {
+		name      string
+		modelID   string
+		setupOpts func() []tokenizers.TokenizerConfigOption
+		wantError bool
+		checkDir  func(t *testing.T, dir string) // Add function to verify directory
+	}{
+		{
+			name:    "valid public model with cache dir",
+			modelID: "bert-base-uncased",
+			setupOpts: func() []tokenizers.TokenizerConfigOption {
+				tmpDir := t.TempDir()
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithCacheDir(tmpDir),
+				}
+			},
+			wantError: false,
+		},
+		{
+			name:    "valid public model without cache dir",
+			modelID: "bert-base-uncased",
+			setupOpts: func() []tokenizers.TokenizerConfigOption {
+				return nil // No cache dir specified
+			},
+			wantError: false,
+		},
+		{
+			name:    "private model with auth token and cache dir",
+			modelID: "private/model",
+			setupOpts: func() []tokenizers.TokenizerConfigOption {
+				tmpDir := t.TempDir()
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithCacheDir(tmpDir),
+					tokenizers.WithAuthToken("test-token"),
+				}
+			},
+			wantError: false,
+			checkDir: func(t *testing.T, dir string) {
+				path := filepath.Join(dir, "private", "model", "tokenizer.json")
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					t.Errorf("expected tokenizer.json to exist in cache dir")
+				}
+			},
+		},
+		{
+			name:    "private model with auth token without cache dir",
+			modelID: "private/model",
+			setupOpts: func() []tokenizers.TokenizerConfigOption {
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithAuthToken("test-token"),
+				}
+			},
+			wantError: false,
+			checkDir: func(t *testing.T, dir string) {
+				if !strings.Contains(dir, "huggingface-tokenizer-") {
+					t.Errorf("expected temp directory name to contain 'huggingface-tokenizer-', got %s", dir)
+				}
+			},
+		},
+		{
+			name:      "empty model ID",
+			modelID:   "",
+			setupOpts: func() []tokenizers.TokenizerConfigOption { return nil },
+			wantError: true,
+			checkDir:  nil, // No directory check needed for error case
+		},
+		{
+			name:    "nonexistent model",
+			modelID: "nonexistent/model",
+			setupOpts: func() []tokenizers.TokenizerConfigOption {
+				tmpDir := t.TempDir()
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithCacheDir(tmpDir),
+				}
+			},
+			wantError: true,
+			checkDir:  nil, // No directory check needed for error case
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			origTransport := http.DefaultClient.Transport
+			http.DefaultClient.Transport = &mockTransport{
+				server:  server,
+				modelID: tt.modelID,
+			}
+			defer func() { http.DefaultClient.Transport = origTransport }()
+
+			tokenizer, err := tokenizers.FromPretrained(tt.modelID, tt.setupOpts()...)
+
+			if tt.wantError {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tokenizer == nil {
+				t.Error("expected tokenizer, got nil")
+				return
+			}
+
+			if err := tokenizer.Close(); err != nil {
+				t.Errorf("error closing tokenizer: %v", err)
+			}
+		})
+	}
+}
+
+func TestConfigOptions(t *testing.T) {
+	server := mockHuggingFaceServer(t)
+	defer server.Close()
+
+	t.Run("WithCacheDir", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		origTransport := http.DefaultClient.Transport
+		http.DefaultClient.Transport = &mockTransport{
+			server:  server,
+			modelID: "bert-base-uncased",
+		}
+		defer func() { http.DefaultClient.Transport = origTransport }()
+
+		tokenizer, err := tokenizers.FromPretrained(
+			"bert-base-uncased",
+			tokenizers.WithCacheDir(tmpDir),
+		)
+
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+			return
+		}
+		defer tokenizer.Close()
+
+		files := []string{"tokenizer.json", "vocab.txt", "special_tokens_map.json"}
+		for _, file := range files {
+			path := filepath.Join(tmpDir, "bert-base-uncased", file)
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				t.Errorf("expected file %s to exist", file)
+			}
+		}
+	})
+
+	t.Run("WithAuthToken", func(t *testing.T) {
+		origTransport := http.DefaultClient.Transport
+		http.DefaultClient.Transport = &mockTransport{
+			server:  server,
+			modelID: "private/model",
+		}
+		defer func() { http.DefaultClient.Transport = origTransport }()
+
+		tokenizer, err := tokenizers.FromPretrained(
+			"private/model",
+			tokenizers.WithAuthToken("test-token"),
+			tokenizers.WithCacheDir(t.TempDir()),
+		)
+
+		if err != nil {
+			t.Errorf("unexpected error with valid auth token: %v", err)
+			return
+		}
+		if tokenizer != nil {
+			tokenizer.Close()
+		}
+
+		tokenizer, err = tokenizers.FromPretrained(
+			"private/model",
+			tokenizers.WithAuthToken("invalid-token"),
+			tokenizers.WithCacheDir(t.TempDir()),
+		)
+
+		if err == nil {
+			t.Error("expected error with invalid auth token, got nil")
+			tokenizer.Close()
+		}
+	})
 }
