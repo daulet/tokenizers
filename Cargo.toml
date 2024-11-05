@@ -1,6 +1,8 @@
 [package]
-name = "tokenizers" 
-version = "0.9.0"
+name = "tokenizers"
+# Bump major version every time we change the behavior of the library.
+# Bump minor.patch version every time we bump tokenizers dependency version.
+version = "0.20.2"
 edition = "2021"
 
 [lib]
@@ -8,7 +10,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 libc = "0.2.140"
-tokenizers = {version = "0.20.0" }
+tokenizers = {version = "0.20.2" }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

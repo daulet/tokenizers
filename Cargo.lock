@@ -823,19 +823,19 @@ dependencies = [
 
 [[package]]
 name = "tokenizers"
-version = "0.9.0"
+version = "0.20.2"
 dependencies = [
  "criterion",
  "libc",
  "rand",
- "tokenizers 0.20.0",
+ "tokenizers 0.20.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "tokenizers"
-version = "0.20.0"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8a24d7f7d6be5b9d1377418b893ab1808af0074f5d1bb2c64784452ddd2aa70"
+checksum = "fef9821871de9277bd7d8a7568e798e775db7eede56e290b4b03f1dfb9ac6769"
 dependencies = [
  "aho-corasick",
  "derive_builder",
