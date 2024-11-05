@@ -11,9 +11,20 @@ import "C"
 
 // NOTE: There should be NO space between the comments and the `import "C"` line.
 import (
+	"fmt"
 	"io"
 	"unsafe"
 )
+
+const WANT_VERSION = "0.20.2"
+
+func init() {
+	version := C.version()
+	got := C.GoString(version)
+	if got != WANT_VERSION {
+		panic(fmt.Errorf("tokenizers library version mismatch, want: %s, got: %s", WANT_VERSION, got))
+	}
+}
 
 type Tokenizer struct {
 	tokenizer unsafe.Pointer

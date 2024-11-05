@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use std::ptr;
 use tokenizers::tokenizer::Tokenizer;
 
+const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[repr(C)]
 pub struct TokenizerOptions {
     encode_special_tokens: bool,
@@ -17,6 +19,11 @@ pub struct Buffer {
     tokens: *mut *mut libc::c_char,
     offsets: *mut usize,
     len: usize,
+}
+
+#[no_mangle]
+pub extern "C" fn version() -> *const libc::c_char {
+    std::ffi::CString::new(CARGO_PKG_VERSION).unwrap().into_raw()
 }
 
 #[no_mangle]
