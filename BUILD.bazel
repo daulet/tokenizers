@@ -23,6 +23,7 @@ rust_static_library(
     srcs = glob([
         "src/**/*.rs",
     ]),
+    version = "1.20.2",
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(
         proc_macro = True,

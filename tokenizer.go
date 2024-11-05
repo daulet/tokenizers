@@ -16,7 +16,7 @@ import (
 	"unsafe"
 )
 
-const WANT_VERSION = "0.20.2"
+const WANT_VERSION = "1.20.2"
 
 func init() {
 	version := C.version()
