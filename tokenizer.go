@@ -97,13 +97,13 @@ func FromFile(path string) (*Tokenizer, error) {
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
-// LoadTokenizerFromHuggingFace downloads necessary files and initializes the tokenizer.
+// FromPretrained downloads necessary files and initializes the tokenizer.
 // Parameters:
 //   - modelID: The Hugging Face model identifier (e.g., "bert-base-uncased").
 //   - destination: Optional. If provided and not nil, files will be downloaded to this folder.
 //     If nil, a temporary directory will be used.
 //   - authToken: Optional. If provided and not nil, it will be used to authenticate requests.
-func LoadTokenizerFromHuggingFace(modelID string, destination, authToken *string) (*Tokenizer, error) {
+func FromPretrained(modelID string, destination, authToken *string) (*Tokenizer, error) {
 	if strings.TrimSpace(modelID) == "" {
 		return nil, fmt.Errorf("modelID cannot be empty")
 	}
@@ -179,7 +179,6 @@ func LoadTokenizerFromHuggingFace(modelID string, destination, authToken *string
 func downloadFile(url, destination string, authToken *string) error {
 	// Check if the file already exists
 	if _, err := os.Stat(destination); err == nil {
-		fmt.Printf("File %s already exists. Skipping download.\n", destination)
 		return nil
 	}
 
