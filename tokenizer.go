@@ -97,13 +97,36 @@ func FromFile(path string) (*Tokenizer, error) {
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
+type tokenizerConfig struct {
+	cacheDir  *string
+	authToken *string
+}
+
+type TokenizerConfigOption func(cfg *tokenizerConfig)
+
+func WithCacheDir(path string) TokenizerConfigOption {
+	return func(cfg *tokenizerConfig) {
+		cfg.cacheDir = &path
+	}
+}
+
+func WithAuthToken(token string) TokenizerConfigOption {
+	return func(cfg *tokenizerConfig) {
+		cfg.authToken = &token
+	}
+}
+
 // FromPretrained downloads necessary files and initializes the tokenizer.
 // Parameters:
 //   - modelID: The Hugging Face model identifier (e.g., "bert-base-uncased").
 //   - destination: Optional. If provided and not nil, files will be downloaded to this folder.
 //     If nil, a temporary directory will be used.
 //   - authToken: Optional. If provided and not nil, it will be used to authenticate requests.
-func FromPretrained(modelID string, destination, authToken *string) (*Tokenizer, error) {
+func FromPretrained(modelID string, opts ...TokenizerConfigOption) (*Tokenizer, error) {
+	cfg := &tokenizerConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	if strings.TrimSpace(modelID) == "" {
 		return nil, fmt.Errorf("modelID cannot be empty")
 	}
@@ -113,8 +136,8 @@ func FromPretrained(modelID string, destination, authToken *string) (*Tokenizer,
 
 	// Determine the download directory
 	var downloadDir string
-	if destination != nil && *destination != "" {
-		downloadDir = *destination
+	if cfg.cacheDir != nil {
+		downloadDir = *cfg.cacheDir
 		// Create the destination directory if it doesn't exist
 		err := os.MkdirAll(downloadDir, os.ModePerm)
 		if err != nil {
@@ -139,7 +162,7 @@ func FromPretrained(modelID string, destination, authToken *string) (*Tokenizer,
 			defer wg.Done()
 			fileURL := fmt.Sprintf("%s/%s", modelURL, fn)
 			destPath := filepath.Join(downloadDir, fn)
-			err := downloadFile(fileURL, destPath, authToken)
+			err := downloadFile(fileURL, destPath, cfg.authToken)
 			if err != nil && mandatory {
 				// If the file is mandatory, report an error
 				errCh <- fmt.Errorf("failed to download mandatory file %s: %w", fn, err)

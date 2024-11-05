@@ -35,8 +35,7 @@ func advanced() error {
 	defer tk.Close()
 
 	// Load pretrained tokenizer from HuggingFace
-	tokenizerPath := "./.cache/tokenizers/google-bert/bert-base-uncased"
-	tkFromHf, err := tokenizers.FromPretrained("google-bert/bert-base-uncased", &tokenizerPath, nil)
+	tkFromHf, err := tokenizers.FromPretrained("google-bert/bert-base-uncased", tokenizers.WithCacheDir("./.cache/tokenizers"))
 	if err != nil {
 		return err
 	}
