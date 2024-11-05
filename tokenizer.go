@@ -182,13 +182,6 @@ func downloadFile(url, destination string, authToken *string) error {
 		return nil
 	}
 
-	// Create the destination file
-	out, err := os.Create(destination)
-	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", destination, err)
-	}
-	defer out.Close()
-
 	// Create a new HTTP request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -196,13 +189,11 @@ func downloadFile(url, destination string, authToken *string) error {
 	}
 
 	// If authToken is provided, set the Authorization header
-	if authToken != nil && *authToken != "" {
+	if authToken != nil {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *authToken))
 	}
 
-	// Perform the HTTP request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download from %s: %w", url, err)
 	}
@@ -212,6 +203,13 @@ func downloadFile(url, destination string, authToken *string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download from %s: status code %d", url, resp.StatusCode)
 	}
+
+	// Create the destination file
+	out, err := os.Create(destination)
+	if err != nil {
+		return fmt.Errorf("failed to create file %s: %w", destination, err)
+	}
+	defer out.Close()
 
 	// Write the response body to the file
 	_, err = io.Copy(out, resp.Body)
