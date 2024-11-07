@@ -36,8 +36,7 @@ Load a tokenizer from Huggingface:
 ```go
 import "github.com/daulet/tokenizers"
 
-tokenizerPath := "../huggingface-tokenizers/google-bert/bert-base-uncased"
-tk, err := tokenizers.LoadTokenizerFromHuggingFace("google-bert/bert-base-uncased", &tokenizerPath, nil)
+tk, err := tokenizers.FromPretrained("google-bert/bert-base-uncased")
 if err != nil {
     return err
 }
