@@ -4,7 +4,7 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 ## Installation
 
-`make build` to build `libtokenizers.a` that you need to run your application that uses bindings. In addition, you need to inform the linker where to find that static library: `go run -ldflags="-extldflags '-L./path/to/libtokenizers.a'" .` or just add it to the `CGO_LDFLAGS` environment variable: `CGO_LDFLAGS="-L./path/to/libtokenizers.a"` to avoid specifying it every time.
+`make build` to build `libtokenizers.a` that you need to run your application that uses bindings. In addition, you need to inform the linker where to find that static library: `go run -ldflags="-extldflags '-L./path/to/libtokenizers/directory'" .` or just add it to the `CGO_LDFLAGS` environment variable: `CGO_LDFLAGS="-L./path/to/libtokenizers/directory"` to avoid specifying it every time.
 
 ### Using pre-built binaries
 
@@ -31,6 +31,20 @@ if err != nil {
 defer tk.Close()
 ```
 
+Load a tokenizer from Huggingface:
+
+```go
+import "github.com/daulet/tokenizers"
+
+tokenizerPath := "../huggingface-tokenizers/google-bert/bert-base-uncased"
+tk, err := tokenizers.LoadTokenizerFromHuggingFace("google-bert/bert-base-uncased", &tokenizerPath, nil)
+if err != nil {
+    return err
+}
+// release native resources
+defer tk.Close()
+```
+
 Encode text and decode tokens:
 
 ```go
@@ -42,6 +56,34 @@ fmt.Println(tk.Encode("brown fox jumps over the lazy dog", true))
 // [101 2829 4419 14523 2058 1996 13971 3899 102] [[CLS] brown fox jumps over the lazy dog [SEP]]
 fmt.Println(tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true))
 // brown fox jumps over the lazy dog
+```
+
+Encode text with options:
+
+```go
+var encodeOptions []tokenizers.EncodeOption
+encodeOptions = append(encodeOptions, tokenizers.WithReturnTypeIDs())
+encodeOptions = append(encodeOptions, tokenizers.WithReturnAttentionMask())
+encodeOptions = append(encodeOptions, tokenizers.WithReturnTokens())
+encodeOptions = append(encodeOptions, tokenizers.WithReturnOffsets())
+encodeOptions = append(encodeOptions, tokenizers.WithReturnSpecialTokensMask())
+
+// Or just basically
+// encodeOptions = append(encodeOptions, tokenizers.WithReturnAllAttributes())
+
+encodingResponse := tk.EncodeWithOptions("brown fox jumps over the lazy dog", false, encodeOptions...)
+fmt.Println(encodingResponse.IDs)
+// [2829 4419 14523 2058 1996 13971 3899]
+fmt.Println(encodingResponse.TypeIDs)
+// [0 0 0 0 0 0 0]
+fmt.Println(encodingResponse.SpecialTokensMask)
+// [0 0 0 0 0 0 0]
+fmt.Println(encodingResponse.AttentionMask)
+// [1 1 1 1 1 1 1]
+fmt.Println(encodingResponse.Tokens)
+// [brown fox jumps over the lazy dog]
+fmt.Println(encodingResponse.Offsets)
+// [[0 5] [6 9] [10 15] [16 20] [21 24] [25 29] [30 33]]
 ```
 
 ## Benchmarks

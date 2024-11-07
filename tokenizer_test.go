@@ -3,6 +3,8 @@ package tokenizers_test
 import (
 	_ "embed"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/daulet/tokenizers"
@@ -471,4 +473,108 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 	text := tk.Decode(input, true)
 	// a token is one or more characters
 	assert.Greater(b, len(text), b.N)
+}
+
+func TestFromPretrained(t *testing.T) {
+	tests := []struct {
+		name          string
+		modelID       string
+		setupOpts     func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string)
+		wantErr       bool
+		expectedToken bool
+	}{
+		{
+			name:          "valid public model with cache dir",
+			modelID:       "bert-base-uncased",
+			expectedToken: true,
+			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
+				tmpDir := t.TempDir()
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithCacheDir(tmpDir),
+				}, tmpDir
+			},
+		},
+		{
+			name:          "valid public model without cache dir",
+			modelID:       "bert-base-uncased",
+			expectedToken: true,
+			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
+				return nil, ""
+			},
+		},
+		{
+			name:          "private model with valid auth token",
+			modelID:       "bert-base-uncased",
+			expectedToken: true,
+			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
+				tmpDir := t.TempDir()
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithCacheDir(tmpDir),
+					tokenizers.WithAuthToken("test-token"),
+				}, tmpDir
+			},
+		},
+		{
+			name:    "private model with invalid auth token",
+			modelID: "private-model",
+			wantErr: true,
+			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
+				tmpDir := t.TempDir()
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithCacheDir(tmpDir),
+					tokenizers.WithAuthToken("invalid-token"),
+				}, tmpDir
+			},
+		},
+		{
+			name:    "empty model ID",
+			modelID: "",
+			wantErr: true,
+			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
+				return nil, ""
+			},
+		},
+		{
+			name:    "nonexistent model",
+			modelID: "nonexistent/model",
+			wantErr: true,
+			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
+				tmpDir := t.TempDir()
+				return []tokenizers.TokenizerConfigOption{
+					tokenizers.WithCacheDir(tmpDir),
+				}, tmpDir
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts, cacheDir := tt.setupOpts(t)
+			tokenizer, err := tokenizers.FromPretrained(tt.modelID, opts...)
+
+			if gotErr := err != nil; gotErr != tt.wantErr {
+				t.Fatalf("expected error: %v, got error: %v", tt.wantErr, err)
+			}
+			if tt.wantErr {
+				return
+			}
+			if cacheDir != "" {
+				validateCache(t, cacheDir, tt.modelID)
+			}
+			if err := tokenizer.Close(); err != nil {
+				t.Fatalf("error closing tokenizer: %v", err)
+			}
+		})
+	}
+}
+
+func validateCache(t *testing.T, dir string, modelID string) {
+	t.Helper()
+	files := []string{"tokenizer.json", "vocab.txt"}
+	for _, file := range files {
+		path := filepath.Join(dir, modelID, file)
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected file %s to exist in cache for model %s", file, modelID)
+		}
+	}
 }
