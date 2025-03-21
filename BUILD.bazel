@@ -1,8 +1,9 @@
-load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 load("@rules_rust//rust:defs.bzl", "rust_static_library")
 
+# gazelle:exclude release
 # gazelle:prefix github.com/daulet/tokenizers
 gazelle(
     name = "gazelle",
