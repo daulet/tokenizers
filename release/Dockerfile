@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.3
 
-FROM rust:1.71 as builder-rust
+FROM rust:1.87 as builder-rust
 ARG TARGETPLATFORM
 WORKDIR /workspace
 COPY ./benches ./benches
