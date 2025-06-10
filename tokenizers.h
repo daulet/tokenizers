@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct EncodeOptions {
+struct tokenizers_encode_options {
   bool add_special_token;
   bool return_type_ids;
   bool return_tokens;
@@ -10,11 +10,11 @@ struct EncodeOptions {
   bool return_offsets;
 };
 
-struct TokenizerOptions {
+struct tokenizers_options {
   bool encode_special_tokens;
 };
 
-struct Buffer {
+struct tokenizers_buffer {
   uint32_t *ids;
   uint32_t *type_ids;
   uint32_t *special_tokens_mask;
@@ -24,22 +24,22 @@ struct Buffer {
   uint32_t len;
 };
 
-const char *version();
+const char *tokenizers_version();
 
-void *from_bytes(const uint8_t *config, uint32_t len, const struct TokenizerOptions *options);
+void *tokenizers_from_bytes(const uint8_t *config, uint32_t len, const struct tokenizers_options *options);
 
-void *from_bytes_with_truncation(const uint8_t *config, uint32_t len, uint32_t max_len, uint8_t direction);
+void *tokenizers_from_bytes_with_truncation(const uint8_t *config, uint32_t len, uint32_t max_len, uint8_t direction);
 
-void *from_file(const char *config);
+void *tokenizers_from_file(const char *config);
 
-struct Buffer encode(void *ptr, const char *message, const struct EncodeOptions *options);
+struct tokenizers_buffer tokenizers_encode(void *ptr, const char *message, const struct tokenizers_encode_options *options);
 
-char *decode(void *ptr, const uint32_t *ids, uint32_t len, bool skip_special_tokens);
+char *tokenizers_decode(void *ptr, const uint32_t *ids, uint32_t len, bool skip_special_tokens);
 
-uint32_t vocab_size(void *ptr);
+uint32_t tokenizers_vocab_size(void *ptr);
 
-void free_tokenizer(void *ptr);
+void tokenizers_free_tokenizer(void *ptr);
 
-void free_buffer(struct Buffer buffer);
+void tokenizers_free_buffer(struct tokenizers_buffer buffer);
 
-void free_string(char *string);
+void tokenizers_free_string(char *string);

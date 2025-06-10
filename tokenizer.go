@@ -38,7 +38,7 @@ var tokenizerFiles = map[string]bool{
 }
 
 func init() {
-	version := C.version()
+	version := C.tokenizers_version()
 	got := C.GoString(version)
 	if got != WANT_VERSION {
 		panic(fmt.Errorf("tokenizers library version mismatch, want: %s, got: %s", WANT_VERSION, got))
@@ -78,19 +78,19 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 	for _, opt := range opts {
 		opt(allOpts)
 	}
-	tokenizer := C.from_bytes((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), (*C.struct_TokenizerOptions)(unsafe.Pointer(allOpts)))
+	tokenizer := C.tokenizers_from_bytes((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), (*C.struct_tokenizers_options)(unsafe.Pointer(allOpts)))
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
 func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection) (*Tokenizer, error) {
-	tokenizer := C.from_bytes_with_truncation((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.uint(maxLen), C.uchar(dir))
+	tokenizer := C.tokenizers_from_bytes_with_truncation((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.uint(maxLen), C.uchar(dir))
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
 func FromFile(path string) (*Tokenizer, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
-	tokenizer, err := C.from_file(cPath)
+	tokenizer, err := C.tokenizers_from_file(cPath)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func downloadFile(url, destination string, authToken *string) error {
 }
 
 func (t *Tokenizer) Close() error {
-	C.free_tokenizer(t.tokenizer)
+	C.tokenizers_free_tokenizer(t.tokenizer)
 	t.tokenizer = nil
 	return nil
 }
@@ -295,12 +295,12 @@ func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []strin
 		AddSpecialTokens: C.bool(addSpecialTokens),
 		ReturnTokens:     C.bool(true),
 	}
-	res := C.encode(t.tokenizer, cStr, (*C.struct_EncodeOptions)(unsafe.Pointer(&options)))
+	res := C.tokenizers_encode(t.tokenizer, cStr, (*C.struct_tokenizers_encode_options)(unsafe.Pointer(&options)))
 	len := int(res.len)
 	if len == 0 {
 		return nil, nil
 	}
-	defer C.free_buffer(res)
+	defer C.tokenizers_free_buffer(res)
 
 	ids := uintVecToSlice(res.ids, len)
 
@@ -365,12 +365,12 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 		opt(&encOptions)
 	}
 
-	res := C.encode(t.tokenizer, cStr, (*C.struct_EncodeOptions)(unsafe.Pointer(&encOptions)))
+	res := C.tokenizers_encode(t.tokenizer, cStr, (*C.struct_tokenizers_encode_options)(unsafe.Pointer(&encOptions)))
 	len := int(res.len)
 	if len == 0 {
 		return Encoding{}
 	}
-	defer C.free_buffer(res)
+	defer C.tokenizers_free_buffer(res)
 
 	encoding := Encoding{}
 	encoding.IDs = uintVecToSlice(res.ids, len)
@@ -407,11 +407,11 @@ func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
 		return ""
 	}
 	len := C.uint(len(tokenIDs))
-	res := C.decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len, C.bool(skipSpecialTokens))
-	defer C.free_string(res)
+	res := C.tokenizers_decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len, C.bool(skipSpecialTokens))
+	defer C.tokenizers_free_string(res)
 	return C.GoString(res)
 }
 
 func (t *Tokenizer) VocabSize() uint32 {
-	return uint32(C.vocab_size(t.tokenizer))
+	return uint32(C.tokenizers_vocab_size(t.tokenizer))
 }
