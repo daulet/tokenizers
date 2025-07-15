@@ -18,6 +18,7 @@ import (
 var embeddedBytes []byte
 
 // TODO test for leaks
+// TODO fuzz tests
 
 func TestInvalidConfigPath(t *testing.T) {
 	_, err := tokenizers.FromFile("./non-existent.json")
@@ -424,56 +425,147 @@ func TestVocabSize(t *testing.T) {
 }
 
 func BenchmarkEncodeNTimes(b *testing.B) {
-	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	hfTk, err := tokenizers.FromFile("./test/data/meta-llama-3-8b-instruct.json")
 	require.NoError(b, err)
-	defer tk.Close()
-	expected := []uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ids, _ := tk.Encode("brown fox jumps over the lazy dog", false)
-		assert.Equal(b, expected, ids)
+	defer hfTk.Close()
+
+	// Source: https://github.com/meta-llama/llama3/blob/main/llama/tokenizer.py
+	ttTk, err := tokenizers.FromTiktoken(
+		"./test/data/meta-llama-3-8b-instruct/tiktoken.model",
+		"./test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+		`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`,
+	)
+	require.NoError(b, err)
+	defer ttTk.Close()
+
+	tests := []struct {
+		name string
+		tk   *tokenizers.Tokenizer
+	}{
+		{name: "huggingface", tk: hfTk},
+		{name: "tiktoken", tk: ttTk},
+	}
+
+	for _, tt := range tests {
+		expected := []uint32{0x10019, 0x9bff, 0x89ec, 0x39f, 0x117, 0x3eb5, 0x162f}
+		b.Run(tt.name, func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				ids, _ := tt.tk.Encode("brown fox jumps over the lazy dog", false)
+				assert.Equal(b, expected, ids)
+			}
+		})
 	}
 }
 
 func BenchmarkEncodeNChars(b *testing.B) {
-	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	hfTk, err := tokenizers.FromFile("./test/data/meta-llama-3-8b-instruct.json")
 	require.NoError(b, err)
-	defer tk.Close()
-	vocabSize := tk.VocabSize()
-	input := make([]rune, 0, b.N)
-	for i := 0; i < b.N; i++ {
-		input = append(input, rune(rand.Uint32()%vocabSize))
+	defer hfTk.Close()
+
+	// Source: https://github.com/meta-llama/llama3/blob/main/llama/tokenizer.py
+	ttTk, err := tokenizers.FromTiktoken(
+		"./test/data/meta-llama-3-8b-instruct/tiktoken.model",
+		"./test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+		`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`,
+	)
+	require.NoError(b, err)
+	defer ttTk.Close()
+
+	tests := []struct {
+		name string
+		tk   *tokenizers.Tokenizer
+	}{
+		{name: "huggingface", tk: hfTk},
+		{name: "tiktoken", tk: ttTk},
 	}
-	str := string(input)
-	b.ResetTimer()
-	_, tokens := tk.Encode(str, false)
-	assert.Greater(b, len(tokens), 0)
+
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			vocabSize := tt.tk.VocabSize()
+			input := make([]rune, 0, b.N)
+			for i := 0; i < b.N; i++ {
+				input = append(input, rune(rand.Uint32()%vocabSize))
+			}
+			str := string(input)
+			b.ResetTimer()
+			_, tokens := tt.tk.Encode(str, false)
+			assert.Greater(b, len(tokens), 0)
+		})
+	}
 }
 
 func BenchmarkDecodeNTimes(b *testing.B) {
-	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	hfTk, err := tokenizers.FromFile("./test/data/meta-llama-3-8b-instruct.json")
 	require.NoError(b, err)
-	defer tk.Close()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		str := tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true)
-		assert.Equal(b, "brown fox jumps over the lazy dog", str)
+	defer hfTk.Close()
+
+	// Source: https://github.com/meta-llama/llama3/blob/main/llama/tokenizer.py
+	ttTk, err := tokenizers.FromTiktoken(
+		"./test/data/meta-llama-3-8b-instruct/tiktoken.model",
+		"./test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+		`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`,
+	)
+	require.NoError(b, err)
+	defer ttTk.Close()
+
+	tests := []struct {
+		name string
+		tk   *tokenizers.Tokenizer
+	}{
+		{name: "huggingface", tk: hfTk},
+		{name: "tiktoken", tk: ttTk},
+	}
+
+	// Token IDs for "brown fox jumps over the lazy dog" in Llama tokenizer
+	tokenIDs := []uint32{0x10019, 0x9bff, 0x89ec, 0x39f, 0x117, 0x3eb5, 0x162f}
+
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				str := tt.tk.Decode(tokenIDs, true)
+				assert.Equal(b, "brown fox jumps over the lazy dog", str)
+			}
+		})
 	}
 }
 
 func BenchmarkDecodeNTokens(b *testing.B) {
-	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	hfTk, err := tokenizers.FromFile("./test/data/meta-llama-3-8b-instruct.json")
 	require.NoError(b, err)
-	defer tk.Close()
-	vocabSize := tk.VocabSize()
-	input := make([]uint32, 0, b.N)
-	for i := 0; i < b.N; i++ {
-		input = append(input, rand.Uint32()%vocabSize)
+	defer hfTk.Close()
+
+	// Source: https://github.com/meta-llama/llama3/blob/main/llama/tokenizer.py
+	ttTk, err := tokenizers.FromTiktoken(
+		"./test/data/meta-llama-3-8b-instruct/tiktoken.model",
+		"./test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+		`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`,
+	)
+	require.NoError(b, err)
+	defer ttTk.Close()
+
+	tests := []struct {
+		name string
+		tk   *tokenizers.Tokenizer
+	}{
+		{name: "huggingface", tk: hfTk},
+		{name: "tiktoken", tk: ttTk},
 	}
-	b.ResetTimer()
-	text := tk.Decode(input, true)
-	// a token is one or more characters
-	assert.Greater(b, len(text), b.N)
+
+	for _, tt := range tests {
+		b.Run(tt.name, func(b *testing.B) {
+			vocabSize := tt.tk.VocabSize()
+			input := make([]uint32, 0, b.N)
+			for i := 0; i < b.N; i++ {
+				input = append(input, rand.Uint32()%vocabSize)
+			}
+			b.ResetTimer()
+			text := tt.tk.Decode(input, true)
+			// a token is one or more characters
+			assert.GreaterOrEqual(b, len(text), b.N)
+		})
+	}
 }
 
 func TestFromTiktoken(t *testing.T) {

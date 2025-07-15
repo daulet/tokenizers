@@ -446,6 +446,19 @@ mod unified_tests {
         Ok(UnifiedTokenizer::Tiktoken(bpe, vocab_size, special_tokens, special_token_ids))
     }
 
+    /// Create a test Llama 3 tiktoken unified tokenizer
+    fn create_test_llama_tokenizer() -> Result<UnifiedTokenizer, Box<dyn std::error::Error>> {
+        // Llama 3 uses the cl100k_base pattern which is the standard GPT-4 pattern
+        let cl100k_base_pattern = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
+        
+        let (bpe, vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
+            "test/data/meta-llama-3-8b-instruct/tiktoken.model",
+            "test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+            cl100k_base_pattern
+        )?;
+        Ok(UnifiedTokenizer::Tiktoken(bpe, vocab_size, special_tokens, special_token_ids))
+    }
+
     #[test]
     fn test_unified_huggingface() -> Result<(), Box<dyn std::error::Error>> {
         // Test with HuggingFace tokenizer
@@ -488,6 +501,141 @@ mod unified_tests {
         // Test vocab size
         let vocab_size = unified.vocab_size();
         assert_eq!(vocab_size, 163840);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_unified_llama() -> Result<(), Box<dyn std::error::Error>> {
+        // Test Llama 3 tiktoken functionality
+        let unified = create_test_llama_tokenizer()?;
+        
+        // Test basic English encoding/decoding
+        let text_en = "Hello, world!";
+        let ids_en = unified.encode(text_en, false)?;
+        assert!(!ids_en.is_empty());
+        let decoded_en = unified.decode(&ids_en, false)?;
+        assert_eq!(decoded_en, text_en);
+        
+        // Test contractions and punctuation
+        let text_contractions = "I'm here, you're there. It's great!";
+        let ids_contractions = unified.encode(text_contractions, false)?;
+        assert!(!ids_contractions.is_empty());
+        let decoded_contractions = unified.decode(&ids_contractions, false)?;
+        assert_eq!(decoded_contractions, text_contractions);
+        
+        // Test multilingual support with various languages
+        let text_multilingual = "Hello world! 你好世界！ مرحبا بالعالم Bonjour le monde! 🌍";
+        let ids_multilingual = unified.encode(text_multilingual, false)?;
+        assert!(!ids_multilingual.is_empty());
+        let decoded_multilingual = unified.decode(&ids_multilingual, false)?;
+        assert_eq!(decoded_multilingual, text_multilingual);
+        
+        // Test numbers and mixed content
+        let text_mixed = "Test123: The price is $99.99 USD (≈€92.50 EUR)";
+        let ids_mixed = unified.encode(text_mixed, false)?;
+        assert!(!ids_mixed.is_empty());
+        let decoded_mixed = unified.decode(&ids_mixed, false)?;
+        assert_eq!(decoded_mixed, text_mixed);
+        
+        // Test vocab size (Llama 3 has 128,256 base tokens)
+        let vocab_size = unified.vocab_size();
+        assert!(vocab_size >= 128256, "Llama 3 vocab size should be at least 128256, got {}", vocab_size);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_llama_special_tokens() -> Result<(), Box<dyn std::error::Error>> {
+        // Test special token parsing and handling for Llama 3
+        let cl100k_base_pattern = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
+        
+        let (_bpe, _vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
+            "test/data/meta-llama-3-8b-instruct/tiktoken.model",
+            "test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+            cl100k_base_pattern
+        )?;
+        
+        // Verify special tokens were parsed
+        assert!(!special_tokens.is_empty(), "Special tokens should have been parsed from config");
+        assert!(!special_token_ids.is_empty(), "Special token IDs should have been parsed");
+        
+        // Check for expected Llama special tokens
+        let has_begin_text = special_tokens.iter().any(|t| t == "<|begin_of_text|>");
+        let has_end_text = special_tokens.iter().any(|t| t == "<|end_of_text|>");
+        let has_start_header = special_tokens.iter().any(|t| t == "<|start_header_id|>");
+        let has_end_header = special_tokens.iter().any(|t| t == "<|end_header_id|>");
+        let has_eot = special_tokens.iter().any(|t| t == "<|eot_id|>");
+        
+        assert!(has_begin_text, "Expected to find <|begin_of_text|> special token");
+        assert!(has_end_text, "Expected to find <|end_of_text|> special token");
+        assert!(has_start_header, "Expected to find <|start_header_id|> special token");
+        assert!(has_end_header, "Expected to find <|end_header_id|> special token");
+        assert!(has_eot, "Expected to find <|eot_id|> special token");
+        
+        // Verify special token IDs are in the expected range (128000-128255 for Llama 3)
+        assert!(special_token_ids.contains(&128000), "Should contain begin_of_text token ID");
+        assert!(special_token_ids.contains(&128001), "Should contain end_of_text token ID");
+        assert!(special_token_ids.contains(&128006), "Should contain start_header_id token ID");
+        assert!(special_token_ids.contains(&128007), "Should contain end_header_id token ID");
+        assert!(special_token_ids.contains(&128009), "Should contain eot_id token ID");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_llama_skip_special_tokens_decoding() -> Result<(), Box<dyn std::error::Error>> {
+        // Test that skip_special_tokens correctly filters out special token IDs during decoding
+        let unified = create_test_llama_tokenizer()?;
+        
+        // Create a sequence with special token IDs
+        // Example: <|begin_of_text|>Hello, world!<|end_of_text|>
+        let ids_with_special = vec![128000, 9906, 11, 1917, 0, 128001]; // [begin_of_text] Hello, world! [end_of_text]
+        
+        // Decode without skipping special tokens
+        let decoded_with_special = unified.decode(&ids_with_special, false)?;
+        assert!(decoded_with_special.contains("<|begin_of_text|>") || decoded_with_special.contains("<|end_of_text|>"), 
+                "Decoded text should contain special tokens when skip_special_tokens is false");
+        
+        // Decode with skipping special tokens
+        let decoded_skip_special = unified.decode(&ids_with_special, true)?;
+        assert!(!decoded_skip_special.contains("<|begin_of_text|>"), 
+                "Decoded text should NOT contain <|begin_of_text|> when skip_special_tokens is true");
+        assert!(!decoded_skip_special.contains("<|end_of_text|>"), 
+                "Decoded text should NOT contain <|end_of_text|> when skip_special_tokens is true");
+        assert_eq!(decoded_skip_special, "Hello, world!", 
+                "Decoded text should only contain the regular tokens");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_llama_chat_template_tokens() -> Result<(), Box<dyn std::error::Error>> {
+        // Test encoding/decoding of chat template patterns
+        let unified = create_test_llama_tokenizer()?;
+        
+        // Test typical chat template markers
+        let chat_markers = vec![
+            "<|start_header_id|>",
+            "<|end_header_id|>",
+            "<|eot_id|>",
+        ];
+        
+        for marker in chat_markers {
+            let ids = unified.encode(marker, true)?;
+            assert!(!ids.is_empty(), "Chat marker '{}' should be encoded", marker);
+            
+            let decoded = unified.decode(&ids, false)?;
+            assert_eq!(decoded, marker, "Chat marker should decode correctly");
+        }
+        
+        // Test a full chat template sequence
+        let chat_sequence = "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nHello!<|eot_id|>";
+        let ids = unified.encode(chat_sequence, true)?;
+        assert!(!ids.is_empty(), "Chat sequence should be encoded");
+        
+        let decoded = unified.decode(&ids, false)?;
+        assert_eq!(decoded, chat_sequence, "Chat sequence should decode correctly");
         
         Ok(())
     }
@@ -608,11 +756,11 @@ pub fn create_tiktoken_encoder(
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TokenizerConfig {
     added_tokens_decoder: HashMap<String, AddedToken>,
-    additional_special_tokens: Vec<String>,
+    additional_special_tokens: Option<Vec<String>>,
     bos_token: String,
     eos_token: String,
-    unk_token: String,
-    pad_token: String,
+    unk_token: Option<String>,
+    pad_token: Option<String>,
     model_max_length: f64,  // Changed from u32 to handle very large values
     tokenizer_class: String,
     chat_template: Option<String>,
