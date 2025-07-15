@@ -1,7 +1,10 @@
 use std::ffi::CStr;
 use std::path::PathBuf;
 use std::ptr;
+use std::collections::HashMap;
 use tokenizers::tokenizer::Tokenizer;
+use serde::{Deserialize, Serialize};
+use tiktoken_rs;
 
 const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -228,4 +231,115 @@ pub extern "C" fn tokenizers_free_string(ptr: *mut libc::c_char) {
     unsafe {
         drop(std::ffi::CString::from_raw(ptr));
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_tiktoken() -> Result<(), Box<dyn std::error::Error>> {
+        // Define the pattern for tokenization
+        let pattern = &[
+            r"[\p{Han}]+",
+            r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+            r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+            r"\p{N}{1,3}",
+            r" ?[^\s\p{L}\p{N}]+[\r\n]*",
+            r"\s*[\r\n]+",
+            r"\s+(?!\S)",
+            r"\s+",
+        ]
+        .join("|");
+
+        // Use the new library function to create the encoder
+        let bpe = crate::create_tiktoken_encoder(
+            "test/data/kimi-k2-instruct/tiktoken.model",
+            "test/data/kimi-k2-instruct/tokenizer_config.json",
+            &pattern
+        )?;
+
+        // Test encoding and decoding
+        let tokens = bpe.encode("Hello, world! 你好，世界！", &HashSet::new()).0;
+        assert_eq!(tokens, vec![19180, 11, 2695, 0, 220, 33845, 378, 2243, 856]);
+
+        let decoded = bpe.decode(tokens)?;
+        assert_eq!(decoded, "Hello, world! 你好，世界！");
+
+        Ok(())
+    }
+}
+
+/// Creates a CoreBPE encoder from a model file, tokenizer config file, and pattern string.
+/// 
+/// # Arguments
+/// * `model_file_path` - Path to the .model file containing base64 encoded tokens and ranks
+/// * `config_file_path` - Path to the tokenizer_config.json file containing special tokens
+/// * `pattern` - Regex pattern string for tokenization
+/// 
+/// # Returns
+/// * `Result<CoreBPE, Box<dyn std::error::Error>>` - The CoreBPE encoder instance or an error
+pub fn create_tiktoken_encoder(
+    model_file_path: &str,
+    config_file_path: &str,
+    pattern: &str,
+) -> Result<tiktoken_rs::CoreBPE, Box<dyn std::error::Error>> {
+    use std::collections::HashMap;
+    use tiktoken_rs::{CoreBPE, Rank};
+    use base64::{Engine as _, engine::general_purpose};
+
+    let mut encoder: HashMap<Vec<u8>, Rank, std::hash::BuildHasherDefault<rustc_hash::FxHasher>> =
+        HashMap::default();
+
+    let file = std::fs::read_to_string(model_file_path)?;
+    for line in file.lines() {
+        let mut parts = line.split(' ');
+        let raw = parts.next()
+            .ok_or("Invalid model file format: missing token")?;
+        let token = general_purpose::STANDARD.decode(raw)?;
+        let rank: Rank = parts.next()
+            .ok_or("Invalid model file format: missing rank")?
+            .parse()?;
+        encoder.insert(token, rank);
+    }
+
+    let mut special_tokens: HashMap<String, u32, std::hash::BuildHasherDefault<rustc_hash::FxHasher>> = 
+        HashMap::default();
+    {
+        let config_file = std::fs::File::open(config_file_path)?;
+        let tokenizer_config: TokenizerConfig = serde_json::from_reader(config_file)?;
+        
+        for (token_id, added_token) in tokenizer_config.added_tokens_decoder {
+            let id: u32 = token_id.parse()?;
+            special_tokens.insert(added_token.content, id);
+        }
+    }
+
+    let bpe = CoreBPE::new(encoder, special_tokens, pattern)?;
+    Ok(bpe)
+}
+
+
+// Structures for deserializing tokenizer_config.json
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TokenizerConfig {
+    added_tokens_decoder: HashMap<String, AddedToken>,
+    additional_special_tokens: Vec<String>,
+    bos_token: String,
+    eos_token: String,
+    unk_token: String,
+    pad_token: String,
+    model_max_length: u32,
+    tokenizer_class: String,
+    chat_template: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AddedToken {
+    content: String,
+    lstrip: bool,
+    normalized: bool,
+    rstrip: bool,
+    single_word: bool,
+    special: bool,
 }
