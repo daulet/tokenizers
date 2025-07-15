@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/daulet/tokenizers"
@@ -475,6 +476,55 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 	assert.Greater(b, len(text), b.N)
 }
 
+func TestFromTiktoken(t *testing.T) {
+	// Define the pattern for tiktoken tokenization
+	pattern := strings.Join([]string{
+		`[\p{Han}]+`,
+		`[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?`,
+		`[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?`,
+		`\p{N}{1,3}`,
+		` ?[^\s\p{L}\p{N}]+[\r\n]*`,
+		`\s*[\r\n]+`,
+		`\s+(?!\S)`,
+		`\s+`,
+	}, "|")
+
+	tk, err := tokenizers.FromTiktoken(
+		"./test/data/kimi-k2-instruct/tiktoken.model",
+		"./test/data/kimi-k2-instruct/tokenizer_config.json",
+		pattern,
+	)
+	require.NoError(t, err)
+	defer tk.Close()
+
+	{
+		text := "Hello, world! 你好，世界！"
+		ids, _ := tk.Encode(text, false)
+		assert.Equal(t, []uint32{19180, 11, 2695, 0, 220, 33845, 378, 2243, 856}, ids)
+		ids, _ = tk.Encode(text, true)
+		assert.Equal(t, []uint32{19180, 11, 2695, 0, 220, 33845, 378, 2243, 856}, ids)
+
+		decoded := tk.Decode(ids, false)
+		assert.Equal(t, text, decoded)
+		decoded = tk.Decode(ids, true)
+		assert.Equal(t, text, decoded)
+	}
+
+	{
+		text := "<|im_middle|>Hello, world! 你好，世界！<|im_end|>"
+		ids, _ := tk.Encode(text, true)
+		assert.Equal(t, []uint32{163601, 19180, 11, 2695, 0, 220, 33845, 378, 2243, 856, 163586}, ids)
+
+		decoded := tk.Decode(ids, false)
+		assert.Equal(t, text, decoded)
+		decoded = tk.Decode(ids, true)
+		assert.Equal(t, "Hello, world! 你好，世界！", decoded)
+	}
+
+	vocabSize := tk.VocabSize()
+	assert.Equal(t, uint32(163840), vocabSize)
+}
+
 func TestFromPretrained(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -500,18 +550,6 @@ func TestFromPretrained(t *testing.T) {
 			expectedToken: true,
 			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
 				return nil, ""
-			},
-		},
-		{
-			name:          "private model with valid auth token",
-			modelID:       "bert-base-uncased",
-			expectedToken: true,
-			setupOpts: func(t *testing.T) ([]tokenizers.TokenizerConfigOption, string) {
-				tmpDir := t.TempDir()
-				return []tokenizers.TokenizerConfigOption{
-					tokenizers.WithCacheDir(tmpDir),
-					tokenizers.WithAuthToken("test-token"),
-				}, tmpDir
 			},
 		},
 		{

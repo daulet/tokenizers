@@ -32,6 +32,8 @@ void *tokenizers_from_bytes_with_truncation(const uint8_t *config, uint32_t len,
 
 void *tokenizers_from_file(const char *config);
 
+void *tokenizers_from_tiktoken(const char *model_file, const char *config_file, const char *pattern);
+
 struct tokenizers_buffer tokenizers_encode(void *ptr, const char *message, const struct tokenizers_encode_options *options);
 
 char *tokenizers_decode(void *ptr, const uint32_t *ids, uint32_t len, bool skip_special_tokens);

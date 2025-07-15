@@ -97,6 +97,24 @@ func FromFile(path string) (*Tokenizer, error) {
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
+// FromTiktoken creates a tokenizer from tiktoken model and config files
+func FromTiktoken(modelPath, configPath, pattern string) (*Tokenizer, error) {
+	cModelPath := C.CString(modelPath)
+	defer C.free(unsafe.Pointer(cModelPath))
+
+	cConfigPath := C.CString(configPath)
+	defer C.free(unsafe.Pointer(cConfigPath))
+
+	cPattern := C.CString(pattern)
+	defer C.free(unsafe.Pointer(cPattern))
+
+	tokenizer := C.tokenizers_from_tiktoken(cModelPath, cConfigPath, cPattern)
+	if tokenizer == nil {
+		return nil, fmt.Errorf("failed to create tiktoken tokenizer")
+	}
+	return &Tokenizer{tokenizer: tokenizer}, nil
+}
+
 type tokenizerConfig struct {
 	cacheDir  *string
 	authToken *string
