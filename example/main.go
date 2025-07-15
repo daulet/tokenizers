@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/daulet/tokenizers"
 )
@@ -71,11 +72,86 @@ func advanced() error {
 	return nil
 }
 
+func tiktoken() error {
+	// Define the pattern for tiktoken tokenization (same as used in Rust tests)
+	pattern := strings.Join([]string{
+		`[\p{Han}]+`,
+		`[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?`,
+		`[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?`,
+		`\p{N}{1,3}`,
+		` ?[^\s\p{L}\p{N}]+[\r\n]*`,
+		`\s*[\r\n]+`,
+		`\s+(?!\S)`,
+		`\s+`,
+	}, "|")
+
+	fmt.Println("=== Tiktoken Tokenizer Example ===")
+
+	// Create a tiktoken tokenizer
+	tk, err := tokenizers.FromTiktoken(
+		"../test/data/kimi-k2-instruct/tiktoken.model",
+		"../test/data/kimi-k2-instruct/tokenizer_config.json",
+		pattern,
+	)
+	if err != nil {
+		return err
+	}
+	defer tk.Close()
+
+	// Test text with both English and Chinese
+	text := "Hello, world! 你好，世界！"
+	fmt.Printf("\nOriginal text: %s\n", text)
+
+	// Encode the text
+	ids, tokens := tk.Encode(text, false)
+	fmt.Printf("Token IDs: %v\n", ids)
+	if len(tokens) > 0 {
+		fmt.Printf("Tokens: %v\n", tokens)
+	}
+
+	// Decode back to text
+	decoded := tk.Decode(ids, false)
+	fmt.Printf("Decoded text: %s\n", decoded)
+
+	// Display vocab size
+	vocabSize := tk.VocabSize()
+	fmt.Printf("\nVocab size: %d\n", vocabSize)
+
+	// Test with special tokens
+	fmt.Println("\n--- Testing with special tokens ---")
+	idsWithSpecial, _ := tk.Encode(text, true)
+	fmt.Printf("Token IDs (with special): %v\n", idsWithSpecial)
+
+	decodedWithSpecial := tk.Decode(idsWithSpecial, false)
+	fmt.Printf("Decoded (with special): %s\n", decodedWithSpecial)
+
+	decodedSkipSpecial := tk.Decode(idsWithSpecial, true)
+	fmt.Printf("Decoded (skip special): %s\n", decodedSkipSpecial)
+
+	// Test encoding text that contains special tokens
+	fmt.Println("\n--- Testing text containing special tokens ---")
+	textWithSpecialTokens := "[BOS] Hello, world! [EOS]"
+	fmt.Printf("Text with special tokens: %s\n", textWithSpecialTokens)
+
+	// Encode with special tokens enabled - should recognize [BOS] and [EOS] as special
+	idsSpecial, _ := tk.Encode(textWithSpecialTokens, true)
+	fmt.Printf("Token IDs (special tokens enabled): %v\n", idsSpecial)
+
+	// Encode with special tokens disabled - should treat [BOS] and [EOS] as regular text
+	idsNoSpecial, _ := tk.Encode(textWithSpecialTokens, false)
+	fmt.Printf("Token IDs (special tokens disabled): %v\n", idsNoSpecial)
+
+	return nil
+}
+
 func main() {
 	if err := simple(); err != nil {
 		log.Fatal(err)
 	}
 	if err := advanced(); err != nil {
+		log.Fatal(err)
+	}
+	if err := tiktoken(); err != nil {
 		log.Fatal(err)
 	}
 }
