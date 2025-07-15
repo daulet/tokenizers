@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	WANT_VERSION = "2.20.2"
+	WANT_VERSION = "1.21.0"
 
 	baseURL = "https://huggingface.co"
 )
