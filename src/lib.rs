@@ -307,9 +307,11 @@ pub extern "C" fn tokenizers_decode(ptr: *mut libc::c_void, ids: *const u32, len
     }
     let ids_slice = unsafe { std::slice::from_raw_parts(ids, len as usize) };
 
-    let string = unified_tokenizer.decode(ids_slice, skip_special_tokens).expect("failed to decode input");
-    match std::ffi::CString::new(string) {
-        Ok(c_string) => c_string.into_raw(),
+    match unified_tokenizer.decode(ids_slice, skip_special_tokens) {
+        Ok(string) => match std::ffi::CString::new(string) {
+            Ok(c_string) => c_string.into_raw(),
+            Err(_) => ptr::null_mut(),
+        },
         Err(_) => ptr::null_mut(),
     }
 }
@@ -746,6 +748,17 @@ pub fn create_tiktoken_encoder(
     let max_rank = encoder.values().copied().max().unwrap_or(0);
     let max_special_token = special_tokens.values().copied().max().unwrap_or(0);
     let vocab_size = std::cmp::max(max_rank, max_special_token) + 1;
+
+    // Fill in missing ranks with reserved special tokens
+    let existing_ranks: HashSet<Rank> = encoder.values().copied().collect();
+    let mut special_rank: u32 = 0;
+    for rank in 0..max_rank {
+        if !existing_ranks.contains(&rank) {
+            let reserved_token = format!("<|reserved_special_token_{}|>", special_rank);
+            special_rank += 1;
+            encoder.insert(reserved_token.into_bytes(), rank);
+        }
+    }
 
     let bpe = CoreBPE::new(encoder, special_tokens, pattern)?;
     Ok((bpe, vocab_size, special_tokens_set, special_token_ids))

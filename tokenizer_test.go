@@ -490,7 +490,7 @@ func BenchmarkEncodeNChars(b *testing.B) {
 			str := string(input)
 			b.ResetTimer()
 			_, tokens := tt.tk.Encode(str, false)
-			assert.Greater(b, len(tokens), 0)
+			assert.Greater(b, len(tokens), 0, "input (len: %d): %v", len(input), input)
 		})
 	}
 }
@@ -563,7 +563,7 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 			b.ResetTimer()
 			text := tt.tk.Decode(input, true)
 			// a token is one or more characters
-			assert.GreaterOrEqual(b, len(text), b.N)
+			assert.GreaterOrEqual(b, len(text), b.N, "input (len: %d): %v", len(input), input)
 		})
 	}
 }
