@@ -87,6 +87,31 @@ fmt.Println(encodingResponse.Offsets)
 
 ## Benchmarks
 
+### Tiktoken vs HuggingFace
+
+Tiktoken is 3x faster on most tasks.
+
+```
+> go test . -ldflags="-extldflags '-L.'" -run=^\$ -bench=. -benchmem -count=1 -benchtime=1s
+
+goos: darwin
+goarch: arm64
+pkg: github.com/daulet/tokenizers
+cpu: Apple M1 Pro
+BenchmarkEncodeNTimes/huggingface-10              133966             10456 ns/op             256 B/op         12 allocs/op
+BenchmarkEncodeNTimes/tiktoken-10                 339538              3759 ns/op              88 B/op          4 allocs/op
+BenchmarkEncodeNChars/huggingface-10            456006800                2.798 ns/op           0 B/op          0 allocs/op
+BenchmarkEncodeNChars/tiktoken-10               615315394                2.959 ns/op           0 B/op          0 allocs/op
+BenchmarkDecodeNTimes/huggingface-10              817164              1489 ns/op              64 B/op          2 allocs/op
+BenchmarkDecodeNTimes/tiktoken-10                2369224               513.9 ns/op            64 B/op          2 allocs/op
+BenchmarkDecodeNTokens/huggingface-10            7423770               170.8 ns/op             4 B/op          0 allocs/op
+BenchmarkDecodeNTokens/tiktoken-10              80597544                19.40 ns/op            4 B/op          0 allocs/op
+PASS
+ok      github.com/daulet/tokenizers    40.626s
+```
+
+### Go vs Rust
+
 `go test . -run=^\$ -bench=. -benchmem -count=10 > test/benchmark/$(git rev-parse HEAD).txt`
 
 Decoding overhead (due to CGO and extra allocations) is between 2% to 9% depending on the benchmark.

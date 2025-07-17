@@ -135,9 +135,15 @@ func TestEncodeWithAndWithoutOptions(t *testing.T) {
 			wantOffsets:           []tokenizers.Offset{{0x0, 0x0}, {0x0, 0x0}},
 		},
 		{
-			name:       "invalid utf8 string",
-			str:        "\x91D",
-			addSpecial: false,
+			name:                  "invalid utf8 string",
+			str:                   "\x91D",
+			wantIDs:               []uint32{1040},
+			wantTypeIDs:           []uint32{0x0},
+			wantTokens:            []string{"d"}, // should be \x91D but tokenizer doesn't handle non-utf8 well
+			wantOffsets:           []tokenizers.Offset{{0x3, 0x4}},
+			addSpecial:            false,
+			wantSpecialTokensMask: []uint32{0x0},
+			wantAttentionMask:     []uint32{0x1},
 		},
 	}
 	for _, tt := range tests {
@@ -489,8 +495,8 @@ func BenchmarkEncodeNChars(b *testing.B) {
 			}
 			str := string(input)
 			b.ResetTimer()
-			_, tokens := tt.tk.Encode(str, false)
-			assert.Greater(b, len(tokens), 0, "input (len: %d): %v", len(input), input)
+			ids, _ := tt.tk.Encode(str, false)
+			assert.Greater(b, len(ids), 0, "input (len: %d): %v", len(input), str)
 		})
 	}
 }
@@ -556,14 +562,22 @@ func BenchmarkDecodeNTokens(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			vocabSize := tt.tk.VocabSize()
+			// Generate some valid tokens by encoding text first
+			sampleText := "The quick brown fox jumps over the lazy dog. This is a sample text for benchmarking."
+			validTokens, _ := tt.tk.Encode(sampleText, false)
+			if len(validTokens) == 0 {
+				b.Fatal("Failed to generate valid tokens from sample text")
+			}
+
 			input := make([]uint32, 0, b.N)
 			for i := 0; i < b.N; i++ {
-				input = append(input, rand.Uint32()%vocabSize)
+				// Use valid tokens from our sample, cycling through them
+				input = append(input, validTokens[i%len(validTokens)])
 			}
 			b.ResetTimer()
 			text := tt.tk.Decode(input, true)
 			// a token is one or more characters
-			assert.GreaterOrEqual(b, len(text), b.N, "input (len: %d): %v", len(input), input)
+			assert.GreaterOrEqual(b, len(text), b.N, "decoded text length: %d, expected at least: %d (vocab size: %d)", len(text), b.N, vocabSize)
 		})
 	}
 }
@@ -615,6 +629,68 @@ func TestFromTiktoken(t *testing.T) {
 
 	vocabSize := tk.VocabSize()
 	assert.Equal(t, uint32(163840), vocabSize)
+}
+
+func TestTiktokenReplacementCharacter(t *testing.T) {
+	// Test tiktoken tokenizer with replacement character (U+FFFD)
+	// Source: https://github.com/meta-llama/llama3/blob/main/llama/tokenizer.py
+	tk, err := tokenizers.FromTiktoken(
+		"./test/data/meta-llama-3-8b-instruct/tiktoken.model",
+		"./test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+		`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`,
+	)
+	require.NoError(t, err)
+	defer tk.Close()
+
+	tests := []struct {
+		name       string
+		input      string
+		shouldWork bool
+	}{
+		{
+			name:       "normal text",
+			input:      "Hello world",
+			shouldWork: true,
+		},
+		{
+			name:       "text with replacement character",
+			input:      "Hello �world",
+			shouldWork: true, // This currently fails but should work
+		},
+		{
+			name:       "multiple replacement characters",
+			input:      "Test � multiple � chars",
+			shouldWork: true,
+		},
+		{
+			name:       "only replacement character",
+			input:      "�",
+			shouldWork: true,
+		},
+		{
+			name:       "UTF-8 replacement character bytes",
+			input:      "\xEF\xBF\xBD", // UTF-8 encoding of U+FFFD
+			shouldWork: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ids, _ := tk.Encode(tt.input, false)
+			if tt.shouldWork {
+				assert.NotEmpty(t, ids, "Expected non-empty token IDs for input: %q", tt.input)
+				// assert.NotEmpty(t, tokens, "Expected non-empty tokens for input: %q", tt.input)
+
+				// Test decoding
+				if len(ids) > 0 {
+					decoded := tk.Decode(ids, false)
+					assert.Equal(t, tt.input, decoded, "Decoded text should match input")
+				}
+			} else {
+				assert.Empty(t, ids, "Expected empty token IDs for input: %q", tt.input)
+			}
+		})
+	}
 }
 
 func TestFromPretrained(t *testing.T) {

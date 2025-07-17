@@ -8,6 +8,32 @@ use tiktoken_rs;
 
 const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Truncation direction for tokenizer truncation
+#[repr(u8)]
+pub enum TruncationDirection {
+    Left = 0,
+    Right = 1,
+}
+
+impl TruncationDirection {
+    /// Create from a u8 value, returns None if invalid
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(TruncationDirection::Left),
+            1 => Some(TruncationDirection::Right),
+            _ => None,
+        }
+    }
+    
+    /// Convert to the tokenizers crate's TruncationDirection
+    pub fn to_tokenizers_direction(&self) -> tokenizers::tokenizer::TruncationDirection {
+        match self {
+            TruncationDirection::Left => tokenizers::tokenizer::TruncationDirection::Left,
+            TruncationDirection::Right => tokenizers::tokenizer::TruncationDirection::Right,
+        }
+    }
+}
+
 // Unified tokenizer interface
 pub enum UnifiedTokenizer {
     HuggingFace(Tokenizer),
@@ -15,6 +41,16 @@ pub enum UnifiedTokenizer {
 }
 
 impl UnifiedTokenizer {
+    /// Creates a HashSet of special token references for tiktoken encoding.
+    /// This avoids recreating the HashSet on every encode call.
+    fn get_special_tokens_refs<'a>(special_tokens: &'a HashSet<String>, add_special_tokens: bool) -> HashSet<&'a str> {
+        if add_special_tokens {
+            special_tokens.iter().map(String::as_str).collect()
+        } else {
+            HashSet::new()
+        }
+    }
+    
     pub fn encode(&self, text: &str, add_special_tokens: bool) -> Result<Vec<u32>, Box<dyn std::error::Error>> {
         match self {
             UnifiedTokenizer::HuggingFace(tokenizer) => {
@@ -23,11 +59,7 @@ impl UnifiedTokenizer {
                 Ok(encoding.get_ids().to_vec())
             }
             UnifiedTokenizer::Tiktoken(bpe, _vocab_size, special_tokens, _special_token_ids) => {
-                let special_tokens_refs = if add_special_tokens {
-                    special_tokens.iter().map(String::as_str).collect::<HashSet<_>>()
-                } else {
-                    HashSet::new()
-                };
+                let special_tokens_refs = Self::get_special_tokens_refs(special_tokens, add_special_tokens);
                 let (tokens, _) = bpe.encode(text, &special_tokens_refs);
                 Ok(tokens)
             }
@@ -49,11 +81,7 @@ impl UnifiedTokenizer {
                 })
             }
             UnifiedTokenizer::Tiktoken(bpe, _vocab_size, special_tokens, _special_token_ids) => {
-                let special_tokens_refs: std::collections::HashSet<&str> = if add_special_tokens {
-                    special_tokens.iter().map(|s| s.as_str()).collect()
-                } else {
-                    std::collections::HashSet::new()
-                };
+                let special_tokens_refs = Self::get_special_tokens_refs(special_tokens, add_special_tokens);
                 let (tokens, _) = bpe.encode(text, &special_tokens_refs);
                 // Tiktoken doesn't provide the same level of detail as HuggingFace
                 Ok(EncodingDetails {
@@ -102,9 +130,14 @@ impl UnifiedTokenizer {
                 tokenizer.set_encode_special_tokens(encode_special_tokens);
             }
             UnifiedTokenizer::Tiktoken(_, _, _, _) => {
-                panic!("set_encode_special_tokens is not supported for Tiktoken");
+                // Silently ignore for Tiktoken since it doesn't support this operation
+                // This is safer than panicking in a library
             }
         }
+    }
+    
+    pub fn supports_encode_special_tokens(&self) -> bool {
+        matches!(self, UnifiedTokenizer::HuggingFace(_))
     }
 
 
@@ -143,45 +176,63 @@ pub extern "C" fn tokenizers_version() -> *const libc::c_char {
 #[no_mangle]
 pub extern "C" fn tokenizers_from_bytes(bytes: *const u8, len: u32, opts: &tokenizers_options) -> *mut libc::c_void {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
-    let mut tokenizer = Tokenizer::from_bytes(bytes_slice).expect("failed to create tokenizer");
-    tokenizer.set_encode_special_tokens(opts.encode_special_tokens);
-    let unified = UnifiedTokenizer::HuggingFace(tokenizer);
-    Box::into_raw(Box::new(unified)).cast()
+    match Tokenizer::from_bytes(bytes_slice) {
+        Ok(mut tokenizer) => {
+            tokenizer.set_encode_special_tokens(opts.encode_special_tokens);
+            let unified = UnifiedTokenizer::HuggingFace(tokenizer);
+            Box::into_raw(Box::new(unified)).cast()
+        }
+        Err(_) => ptr::null_mut()
+    }
 }
 
 // TODO merge with from_bytes and pass truncation params as an argument to TokenizerOptions
 #[no_mangle]
 pub extern "C" fn tokenizers_from_bytes_with_truncation(bytes: *const u8, len: u32, max_len: usize, dir: u8) -> *mut libc::c_void {
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
-    let tokenizer: Tokenizer = Tokenizer::from_bytes(bytes_slice)
-        .expect("failed to create tokenizer")
-        .with_truncation(Some(tokenizers::tokenizer::TruncationParams{
-            max_length: max_len,
-            direction: match dir {
-                0 => tokenizers::tokenizer::TruncationDirection::Left,
-                1 => tokenizers::tokenizer::TruncationDirection::Right,
-                _ => panic!("invalid truncation direction"),
-            },
-            ..Default::default()
-        })).unwrap().to_owned().into();
-    let unified = UnifiedTokenizer::HuggingFace(tokenizer);
-    Box::into_raw(Box::new(unified)).cast()
+    let direction = match TruncationDirection::from_u8(dir) {
+        Some(d) => d.to_tokenizers_direction(),
+        None => return ptr::null_mut(), // Invalid direction
+    };
+    
+    match Tokenizer::from_bytes(bytes_slice) {
+        Ok(mut tokenizer) => {
+            let truncation_params = tokenizers::tokenizer::TruncationParams {
+                max_length: max_len,
+                direction,
+                ..Default::default()
+            };
+            match tokenizer.with_truncation(Some(truncation_params)) {
+                Ok(tokenizer_with_truncation) => {
+                    let unified = UnifiedTokenizer::HuggingFace(tokenizer_with_truncation.to_owned().into());
+                    Box::into_raw(Box::new(unified)).cast()
+                }
+                Err(_) => ptr::null_mut()
+            }
+        }
+        Err(_) => ptr::null_mut()
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn tokenizers_from_file(config: *const libc::c_char) -> *mut libc::c_void {
+    if config.is_null() {
+        return ptr::null_mut();
+    }
     let config_cstr = unsafe { CStr::from_ptr(config) };
-    let config = config_cstr.to_str().unwrap();
-    let config = PathBuf::from(config);
-    match Tokenizer::from_file(config) {
-        Ok(tokenizer) => {
-            let unified = UnifiedTokenizer::HuggingFace(tokenizer);
-            let ptr = Box::into_raw(Box::new(unified));
-            ptr.cast()
+    match config_cstr.to_str() {
+        Ok(config_str) => {
+            let config_path = PathBuf::from(config_str);
+            match Tokenizer::from_file(config_path) {
+                Ok(tokenizer) => {
+                    let unified = UnifiedTokenizer::HuggingFace(tokenizer);
+                    let ptr = Box::into_raw(Box::new(unified));
+                    ptr.cast()
+                }
+                Err(_) => ptr::null_mut()
+            }
         }
-        Err(_) => {
-            ptr::null_mut()
-        }
+        Err(_) => ptr::null_mut()
     }
 }
 
@@ -191,14 +242,27 @@ pub extern "C" fn tokenizers_from_tiktoken(
     config_file: *const libc::c_char,
     pattern: *const libc::c_char,
 ) -> *mut libc::c_void {
+    if model_file.is_null() || config_file.is_null() || pattern.is_null() {
+        return ptr::null_mut();
+    }
+    
     let model_file_cstr = unsafe { CStr::from_ptr(model_file) };
-    let model_file_str = model_file_cstr.to_str().unwrap();
+    let model_file_str = match model_file_cstr.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
     
     let config_file_cstr = unsafe { CStr::from_ptr(config_file) };
-    let config_file_str = config_file_cstr.to_str().unwrap();
+    let config_file_str = match config_file_cstr.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
     
     let pattern_cstr = unsafe { CStr::from_ptr(pattern) };
-    let pattern_str = pattern_cstr.to_str().unwrap();
+    let pattern_str = match pattern_cstr.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
     
     match create_tiktoken_encoder(model_file_str, config_file_str, pattern_str) {
         Ok((bpe, vocab_size, special_tokens, special_token_ids)) => {
@@ -224,18 +288,53 @@ pub struct tokenizers_encode_options {
 
 #[no_mangle]
 pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc::c_char, options: &tokenizers_encode_options) -> tokenizers_buffer {
-    let unified_tokenizer: &UnifiedTokenizer;
-    unsafe {
-        unified_tokenizer = ptr.cast::<UnifiedTokenizer>().as_ref().expect("failed to cast tokenizer");
+    if ptr.is_null() || message.is_null() {
+        return tokenizers_buffer { 
+            ids: ptr::null_mut(), 
+            tokens: ptr::null_mut(), 
+            len: 0, 
+            type_ids: ptr::null_mut(), 
+            special_tokens_mask: ptr::null_mut(), 
+            attention_mask: ptr::null_mut(), 
+            offsets: ptr::null_mut()
+        };
     }
+    
+    let unified_tokenizer = unsafe {
+        match ptr.cast::<UnifiedTokenizer>().as_ref() {
+            Some(tokenizer) => tokenizer,
+            None => return tokenizers_buffer { 
+                ids: ptr::null_mut(), 
+                tokens: ptr::null_mut(), 
+                len: 0, 
+                type_ids: ptr::null_mut(), 
+                special_tokens_mask: ptr::null_mut(), 
+                attention_mask: ptr::null_mut(), 
+                offsets: ptr::null_mut()
+            }
+        }
+    };
+    
     let message_cstr = unsafe { CStr::from_ptr(message) };
-    let message = message_cstr.to_str();
-    if message.is_err() {
-        return tokenizers_buffer { ids: ptr::null_mut(), tokens: ptr::null_mut(), len: 0, type_ids: ptr::null_mut(), special_tokens_mask: ptr::null_mut(), attention_mask: ptr::null_mut() , offsets: ptr::null_mut()};
-    }
+    let message_bytes = message_cstr.to_bytes();
+    
+    // Use from_utf8_lossy to handle invalid UTF-8 gracefully
+    // This will replace invalid sequences with the replacement character (U+FFFD)
+    let message_cow = String::from_utf8_lossy(message_bytes);
+    let message = message_cow.as_ref();
 
-    let encoding_details = unified_tokenizer.encode_with_details(message.unwrap(), options.add_special_tokens)
-        .expect("failed to encode input");
+    let encoding_details = match unified_tokenizer.encode_with_details(message, options.add_special_tokens) {
+        Ok(details) => details,
+        Err(_) => return tokenizers_buffer { 
+            ids: ptr::null_mut(), 
+            tokens: ptr::null_mut(), 
+            len: 0, 
+            type_ids: ptr::null_mut(), 
+            special_tokens_mask: ptr::null_mut(), 
+            attention_mask: ptr::null_mut(), 
+            offsets: ptr::null_mut()
+        }
+    };
     
     let mut vec_ids = encoding_details.ids;
     vec_ids.shrink_to_fit();
@@ -301,10 +400,16 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
 
 #[no_mangle]
 pub extern "C" fn tokenizers_decode(ptr: *mut libc::c_void, ids: *const u32, len: u32, skip_special_tokens: bool) -> *mut libc::c_char {
-    let unified_tokenizer: &UnifiedTokenizer;
-    unsafe {
-        unified_tokenizer = ptr.cast::<UnifiedTokenizer>().as_ref().expect("failed to cast tokenizer");
+    if ptr.is_null() || ids.is_null() {
+        return ptr::null_mut();
     }
+    
+    let unified_tokenizer = unsafe {
+        match ptr.cast::<UnifiedTokenizer>().as_ref() {
+            Some(tokenizer) => tokenizer,
+            None => return ptr::null_mut()
+        }
+    };
     let ids_slice = unsafe { std::slice::from_raw_parts(ids, len as usize) };
 
     match unified_tokenizer.decode(ids_slice, skip_special_tokens) {
@@ -318,10 +423,16 @@ pub extern "C" fn tokenizers_decode(ptr: *mut libc::c_void, ids: *const u32, len
 
 #[no_mangle]
 pub extern "C" fn tokenizers_vocab_size(ptr: *mut libc::c_void) -> u32 {
-    let unified_tokenizer: &UnifiedTokenizer;
-    unsafe {
-        unified_tokenizer = ptr.cast::<UnifiedTokenizer>().as_ref().expect("failed to cast tokenizer");
+    if ptr.is_null() {
+        return 0;
     }
+    
+    let unified_tokenizer = unsafe {
+        match ptr.cast::<UnifiedTokenizer>().as_ref() {
+            Some(tokenizer) => tokenizer,
+            None => return 0
+        }
+    };
     unified_tokenizer.vocab_size()
 }
 
@@ -384,28 +495,22 @@ pub extern "C" fn tokenizers_free_string(ptr: *mut libc::c_char) {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::collections::HashSet;
+
+    /// Common tiktoken pattern for models like Kimi
+    const TIKTOKEN_PATTERN_KIMI: &str = r"[\p{Han}]+|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
+
+    /// Common tiktoken pattern for models like GPT-4 (cl100k_base)
+    const TIKTOKEN_PATTERN_CL100K_BASE: &str = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
 
     #[test]
     fn test_tiktoken() -> Result<(), Box<dyn std::error::Error>> {
-        // Define the pattern for tokenization
-        let pattern = &[
-            r"[\p{Han}]+",
-            r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
-            r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
-            r"\p{N}{1,3}",
-            r" ?[^\s\p{L}\p{N}]+[\r\n]*",
-            r"\s*[\r\n]+",
-            r"\s+(?!\S)",
-            r"\s+",
-        ]
-        .join("|");
-
-        // Use the new library function to create the encoder
+        // Use the constant pattern for tokenization
         let (bpe, _vocab_size, _special_tokens, _special_token_ids) = crate::create_tiktoken_encoder(
             "test/data/kimi-k2-instruct/tiktoken.model",
             "test/data/kimi-k2-instruct/tokenizer_config.json",
-            &pattern
+            TIKTOKEN_PATTERN_KIMI
         )?;
 
         // Test encoding and decoding
@@ -417,46 +522,23 @@ mod tests {
 
         Ok(())
     }
-}
-
-#[cfg(test)]
-mod unified_tests {
-    use super::*;
-
-    /// Common pattern used for tiktoken tokenization tests
-    fn get_tiktoken_pattern() -> String {
-        [
-            r"[\p{Han}]+",
-            r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
-            r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
-            r"\p{N}{1,3}",
-            r" ?[^\s\p{L}\p{N}]+[\r\n]*",
-            r"\s*[\r\n]+",
-            r"\s+(?!\S)",
-            r"\s+",
-        ]
-        .join("|")
-    }
 
     /// Create a test tiktoken unified tokenizer
     fn create_test_tiktoken_tokenizer() -> Result<UnifiedTokenizer, Box<dyn std::error::Error>> {
         let (bpe, vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
             "test/data/kimi-k2-instruct/tiktoken.model",
             "test/data/kimi-k2-instruct/tokenizer_config.json",
-            &get_tiktoken_pattern()
+            TIKTOKEN_PATTERN_KIMI
         )?;
         Ok(UnifiedTokenizer::Tiktoken(bpe, vocab_size, special_tokens, special_token_ids))
     }
 
     /// Create a test Llama 3 tiktoken unified tokenizer
     fn create_test_llama_tokenizer() -> Result<UnifiedTokenizer, Box<dyn std::error::Error>> {
-        // Llama 3 uses the cl100k_base pattern which is the standard GPT-4 pattern
-        let cl100k_base_pattern = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
-        
         let (bpe, vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
             "test/data/meta-llama-3-8b-instruct/tiktoken.model",
             "test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
-            cl100k_base_pattern
+            TIKTOKEN_PATTERN_CL100K_BASE
         )?;
         Ok(UnifiedTokenizer::Tiktoken(bpe, vocab_size, special_tokens, special_token_ids))
     }
@@ -508,6 +590,32 @@ mod unified_tests {
     }
 
     #[test]
+    fn test_tiktoken_replacement_character() -> Result<(), Box<dyn std::error::Error>> {
+        // Test that tiktoken can handle the replacement character (U+FFFD)
+        let unified = create_test_llama_tokenizer()?;
+        
+        // Test cases with replacement character
+        let test_cases = vec![
+            ("Hello world", "Normal text should work"),
+            ("Hello �world", "Text with replacement character should work"),
+            ("Test � multiple � chars", "Multiple replacement characters should work"),
+            ("�", "Just replacement character should work"),
+            ("\u{FFFD}", "Unicode escape replacement character should work"),
+            (std::str::from_utf8(&[0xEF, 0xBF, 0xBD]).unwrap(), "UTF-8 bytes of replacement character should work"),
+        ];
+        
+        for (text, description) in test_cases {
+            let ids = unified.encode(text, false)?;
+            assert!(!ids.is_empty(), "{}: Expected non-empty token IDs for text: {:?}", description, text);
+            
+            let decoded = unified.decode(&ids, false)?;
+            assert_eq!(decoded, text, "{}: Decoded text should match original", description);
+        }
+        
+        Ok(())
+    }
+
+    #[test]
     fn test_unified_llama() -> Result<(), Box<dyn std::error::Error>> {
         // Test Llama 3 tiktoken functionality
         let unified = create_test_llama_tokenizer()?;
@@ -550,12 +658,10 @@ mod unified_tests {
     #[test]
     fn test_llama_special_tokens() -> Result<(), Box<dyn std::error::Error>> {
         // Test special token parsing and handling for Llama 3
-        let cl100k_base_pattern = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
-        
         let (_bpe, _vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
             "test/data/meta-llama-3-8b-instruct/tiktoken.model",
             "test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
-            cl100k_base_pattern
+            TIKTOKEN_PATTERN_CL100K_BASE
         )?;
         
         // Verify special tokens were parsed
@@ -648,7 +754,7 @@ mod unified_tests {
         let (_bpe, _vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
             "test/data/kimi-k2-instruct/tiktoken.model",
             "test/data/kimi-k2-instruct/tokenizer_config.json",
-            &get_tiktoken_pattern()
+            TIKTOKEN_PATTERN_KIMI
         )?;
         
         // Verify special tokens were parsed
@@ -702,8 +808,18 @@ mod unified_tests {
 /// * `pattern` - Regex pattern string for tokenization
 /// 
 /// # Returns
-/// * `Result<CoreBPE, Box<dyn std::error::Error>>` - The CoreBPE encoder instance or an error
-// TODO add special tokens for all missing IDs
+/// A tuple containing:
+/// * `CoreBPE` - The tiktoken encoder instance
+/// * `u32` - The vocabulary size
+/// * `HashSet<String>` - Set of special token strings
+/// * `HashSet<u32>` - Set of special token IDs
+/// 
+/// # Errors
+/// Returns an error if:
+/// * File reading fails
+/// * Model file format is invalid
+/// * Base64 decoding fails
+/// * JSON parsing fails
 pub fn create_tiktoken_encoder(
     model_file_path: &str,
     config_file_path: &str,
@@ -716,46 +832,64 @@ pub fn create_tiktoken_encoder(
     let mut encoder: HashMap<Vec<u8>, Rank, std::hash::BuildHasherDefault<rustc_hash::FxHasher>> =
         HashMap::default();
 
-    let file = std::fs::read_to_string(model_file_path)?;
-    for line in file.lines() {
+    // Parse the model file
+    let file = std::fs::read_to_string(model_file_path)
+        .map_err(|e| format!("Failed to read model file: {}", e))?;
+    
+    for (line_num, line) in file.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        
         let mut parts = line.split(' ');
         let raw = parts.next()
-            .ok_or("Invalid model file format: missing token")?;
-        let token = general_purpose::STANDARD.decode(raw)?;
+            .ok_or_else(|| format!("Invalid model file format at line {}: missing token", line_num + 1))?;
+        let token = general_purpose::STANDARD.decode(raw)
+            .map_err(|e| format!("Failed to decode base64 at line {}: {}", line_num + 1, e))?;
         let rank: Rank = parts.next()
-            .ok_or("Invalid model file format: missing rank")?
-            .parse()?;
+            .ok_or_else(|| format!("Invalid model file format at line {}: missing rank", line_num + 1))?
+            .parse()
+            .map_err(|e| format!("Failed to parse rank at line {}: {}", line_num + 1, e))?;
         encoder.insert(token, rank);
     }
 
+    // Parse special tokens from config
     let mut special_tokens: HashMap<String, u32, std::hash::BuildHasherDefault<rustc_hash::FxHasher>> = 
         HashMap::default();
     let mut special_tokens_set = HashSet::new();
     let mut special_token_ids = HashSet::new();
     {
-        let config_file = std::fs::File::open(config_file_path)?;
-        let tokenizer_config: TokenizerConfig = serde_json::from_reader(config_file)?;
+        let config_file = std::fs::File::open(config_file_path)
+            .map_err(|e| format!("Failed to open config file: {}", e))?;
+        let tokenizer_config: TokenizerConfig = serde_json::from_reader(config_file)
+            .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
         
         for (token_id, added_token) in tokenizer_config.added_tokens_decoder {
-            let id: u32 = token_id.parse()?;
+            let id: u32 = token_id.parse()
+                .map_err(|e| format!("Failed to parse token ID '{}': {}", token_id, e))?;
             special_tokens.insert(added_token.content.clone(), id);
             special_tokens_set.insert(added_token.content);
             special_token_ids.insert(id);
         }
     }
 
-    // Calculate vocab size as max token ID + 1
+    // Calculate vocab size more robustly
+    // The vocab size should be the maximum of:
+    // 1. The highest rank in the base vocabulary
+    // 2. The highest special token ID
+    // Plus 1 to account for 0-based indexing
     let max_rank = encoder.values().copied().max().unwrap_or(0);
     let max_special_token = special_tokens.values().copied().max().unwrap_or(0);
     let vocab_size = std::cmp::max(max_rank, max_special_token) + 1;
 
     // Fill in missing ranks with reserved special tokens
+    // This ensures the encoder has entries for all ranks from 0 to max_rank
     let existing_ranks: HashSet<Rank> = encoder.values().copied().collect();
-    let mut special_rank: u32 = 0;
+    let mut reserved_token_count: u32 = 0;
     for rank in 0..max_rank {
         if !existing_ranks.contains(&rank) {
-            let reserved_token = format!("<|reserved_special_token_{}|>", special_rank);
-            special_rank += 1;
+            let reserved_token = format!("<|reserved_special_token_{}|>", reserved_token_count);
+            reserved_token_count += 1;
             encoder.insert(reserved_token.into_bytes(), rank);
         }
     }
