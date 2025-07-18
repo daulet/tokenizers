@@ -174,7 +174,15 @@ pub extern "C" fn tokenizers_version() -> *const libc::c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn tokenizers_from_bytes(bytes: *const u8, len: u32, opts: &tokenizers_options) -> *mut libc::c_void {
+pub extern "C" fn tokenizers_from_bytes(bytes: *const u8, len: u32, opts: &tokenizers_options, error: *mut *mut libc::c_char) -> *mut libc::c_void {
+    if bytes.is_null() {
+        if !error.is_null() {
+            let err_msg = std::ffi::CString::new("Bytes pointer is null").unwrap();
+            unsafe { *error = err_msg.into_raw(); }
+        }
+        return ptr::null_mut();
+    }
+    
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
     match Tokenizer::from_bytes(bytes_slice) {
         Ok(mut tokenizer) => {
@@ -182,17 +190,37 @@ pub extern "C" fn tokenizers_from_bytes(bytes: *const u8, len: u32, opts: &token
             let unified = UnifiedTokenizer::HuggingFace(tokenizer);
             Box::into_raw(Box::new(unified)).cast()
         }
-        Err(_) => ptr::null_mut()
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Failed to create tokenizer from bytes: {}", e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
+            ptr::null_mut()
+        }
     }
 }
 
 // TODO merge with from_bytes and pass truncation params as an argument to TokenizerOptions
 #[no_mangle]
-pub extern "C" fn tokenizers_from_bytes_with_truncation(bytes: *const u8, len: u32, max_len: usize, dir: u8) -> *mut libc::c_void {
+pub extern "C" fn tokenizers_from_bytes_with_truncation(bytes: *const u8, len: u32, max_len: usize, dir: u8, error: *mut *mut libc::c_char) -> *mut libc::c_void {
+    if bytes.is_null() {
+        if !error.is_null() {
+            let err_msg = std::ffi::CString::new("Bytes pointer is null").unwrap();
+            unsafe { *error = err_msg.into_raw(); }
+        }
+        return ptr::null_mut();
+    }
+    
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
     let direction = match TruncationDirection::from_u8(dir) {
         Some(d) => d.to_tokenizers_direction(),
-        None => return ptr::null_mut(), // Invalid direction
+        None => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Invalid truncation direction: {}", dir)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
+            return ptr::null_mut();
+        }
     };
     
     match Tokenizer::from_bytes(bytes_slice) {
@@ -207,32 +235,61 @@ pub extern "C" fn tokenizers_from_bytes_with_truncation(bytes: *const u8, len: u
                     let unified = UnifiedTokenizer::HuggingFace(tokenizer_with_truncation.to_owned().into());
                     Box::into_raw(Box::new(unified)).cast()
                 }
-                Err(_) => ptr::null_mut()
+                Err(e) => {
+                    if !error.is_null() {
+                        let err_msg = std::ffi::CString::new(format!("Failed to set truncation parameters: {}", e)).unwrap();
+                        unsafe { *error = err_msg.into_raw(); }
+                    }
+                    ptr::null_mut()
+                }
             }
         }
-        Err(_) => ptr::null_mut()
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Failed to create tokenizer from bytes: {}", e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
+            ptr::null_mut()
+        }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn tokenizers_from_file(config: *const libc::c_char) -> *mut libc::c_void {
+pub extern "C" fn tokenizers_from_file(config: *const libc::c_char, error: *mut *mut libc::c_char) -> *mut libc::c_void {
     if config.is_null() {
+        if !error.is_null() {
+            let err_msg = std::ffi::CString::new("Config path is null").unwrap();
+            unsafe { *error = err_msg.into_raw(); }
+        }
         return ptr::null_mut();
     }
+    
     let config_cstr = unsafe { CStr::from_ptr(config) };
-    match config_cstr.to_str() {
-        Ok(config_str) => {
-            let config_path = PathBuf::from(config_str);
-            match Tokenizer::from_file(config_path) {
-                Ok(tokenizer) => {
-                    let unified = UnifiedTokenizer::HuggingFace(tokenizer);
-                    let ptr = Box::into_raw(Box::new(unified));
-                    ptr.cast()
-                }
-                Err(_) => ptr::null_mut()
+    let config_str = match config_cstr.to_str() {
+        Ok(s) => s,
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Invalid UTF-8 in config path: {}", e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
             }
+            return ptr::null_mut();
         }
-        Err(_) => ptr::null_mut()
+    };
+    
+    let config_path = PathBuf::from(config_str);
+    match Tokenizer::from_file(&config_path) {
+        Ok(tokenizer) => {
+            let unified = UnifiedTokenizer::HuggingFace(tokenizer);
+            let ptr = Box::into_raw(Box::new(unified));
+            ptr.cast()
+        }
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Failed to load tokenizer from file '{}': {}", config_str, e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
+            ptr::null_mut()
+        }
     }
 }
 
@@ -241,27 +298,50 @@ pub extern "C" fn tokenizers_from_tiktoken(
     model_file: *const libc::c_char,
     config_file: *const libc::c_char,
     pattern: *const libc::c_char,
+    error: *mut *mut libc::c_char,
 ) -> *mut libc::c_void {
     if model_file.is_null() || config_file.is_null() || pattern.is_null() {
+        if !error.is_null() {
+            let err_msg = std::ffi::CString::new("One or more required parameters are null").unwrap();
+            unsafe { *error = err_msg.into_raw(); }
+        }
         return ptr::null_mut();
     }
     
     let model_file_cstr = unsafe { CStr::from_ptr(model_file) };
     let model_file_str = match model_file_cstr.to_str() {
         Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Invalid UTF-8 in model file path: {}", e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
+            return ptr::null_mut();
+        }
     };
     
     let config_file_cstr = unsafe { CStr::from_ptr(config_file) };
     let config_file_str = match config_file_cstr.to_str() {
         Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Invalid UTF-8 in config file path: {}", e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
+            return ptr::null_mut();
+        }
     };
     
     let pattern_cstr = unsafe { CStr::from_ptr(pattern) };
     let pattern_str = match pattern_cstr.to_str() {
         Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Invalid UTF-8 in pattern: {}", e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
+            return ptr::null_mut();
+        }
     };
     
     match create_tiktoken_encoder(model_file_str, config_file_str, pattern_str) {
@@ -269,7 +349,11 @@ pub extern "C" fn tokenizers_from_tiktoken(
             let unified = UnifiedTokenizer::Tiktoken(bpe, vocab_size, special_tokens, special_token_ids);
             Box::into_raw(Box::new(unified)).cast()
         }
-        Err(_) => {
+        Err(e) => {
+            if !error.is_null() {
+                let err_msg = std::ffi::CString::new(format!("Failed to create tiktoken tokenizer: {}", e)).unwrap();
+                unsafe { *error = err_msg.into_raw(); }
+            }
             ptr::null_mut()
         }
     }

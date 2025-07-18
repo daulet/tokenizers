@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 struct tokenizers_encode_options {
   bool add_special_token;
@@ -26,13 +27,13 @@ struct tokenizers_buffer {
 
 const char *tokenizers_version();
 
-void *tokenizers_from_bytes(const uint8_t *config, uint32_t len, const struct tokenizers_options *options);
+void *tokenizers_from_bytes(const uint8_t *config, uint32_t len, const struct tokenizers_options *options, char **error);
 
-void *tokenizers_from_bytes_with_truncation(const uint8_t *config, uint32_t len, uint32_t max_len, uint8_t direction);
+void *tokenizers_from_bytes_with_truncation(const uint8_t *config, uint32_t len, uint32_t max_len, uint8_t direction, char **error);
 
-void *tokenizers_from_file(const char *config);
+void *tokenizers_from_file(const char *config, char **error);
 
-void *tokenizers_from_tiktoken(const char *model_file, const char *config_file, const char *pattern);
+void *tokenizers_from_tiktoken(const char *model_file, const char *config_file, const char *pattern, char **error);
 
 struct tokenizers_buffer tokenizers_encode(void *ptr, const char *message, const struct tokenizers_encode_options *options);
 

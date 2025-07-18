@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	WANT_VERSION = "1.21.1"
+	WANT_VERSION = "1.22.0"
 
 	baseURL = "https://huggingface.co"
 )
@@ -71,6 +71,10 @@ const (
 var _ io.Closer = (*Tokenizer)(nil)
 
 func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("tokenizer data cannot be empty")
+	}
+
 	allOpts := &tokenizerOpts{
 		// by default, we do not encode special tokens
 		encodeSpecialTokens: C.bool(false),
@@ -78,22 +82,55 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 	for _, opt := range opts {
 		opt(allOpts)
 	}
-	tokenizer := C.tokenizers_from_bytes((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), (*C.struct_tokenizers_options)(unsafe.Pointer(allOpts)))
+
+	var errPtr *C.char
+	tokenizer := C.tokenizers_from_bytes((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), (*C.struct_tokenizers_options)(unsafe.Pointer(allOpts)), &errPtr)
+	if tokenizer == nil {
+		if errPtr != nil {
+			errStr := C.GoString(errPtr)
+			C.tokenizers_free_string(errPtr)
+			return nil, fmt.Errorf("%s", errStr)
+		}
+		return nil, fmt.Errorf("failed to create tokenizer from bytes")
+	}
+
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
 func FromBytesWithTruncation(data []byte, maxLen uint32, dir TruncationDirection) (*Tokenizer, error) {
-	tokenizer := C.tokenizers_from_bytes_with_truncation((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.uint(maxLen), C.uchar(dir))
+	if len(data) == 0 {
+		return nil, fmt.Errorf("tokenizer data cannot be empty")
+	}
+
+	var errPtr *C.char
+	tokenizer := C.tokenizers_from_bytes_with_truncation((*C.uchar)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.uint(maxLen), C.uchar(dir), &errPtr)
+	if tokenizer == nil {
+		if errPtr != nil {
+			errStr := C.GoString(errPtr)
+			C.tokenizers_free_string(errPtr)
+			return nil, fmt.Errorf("%s", errStr)
+		}
+		return nil, fmt.Errorf("failed to create tokenizer with truncation")
+	}
+
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
 func FromFile(path string) (*Tokenizer, error) {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
-	tokenizer, err := C.tokenizers_from_file(cPath)
-	if err != nil {
-		return nil, err
+
+	var errPtr *C.char
+	tokenizer := C.tokenizers_from_file(cPath, &errPtr)
+	if tokenizer == nil {
+		if errPtr != nil {
+			errStr := C.GoString(errPtr)
+			C.tokenizers_free_string(errPtr)
+			return nil, fmt.Errorf("%s", errStr)
+		}
+		return nil, fmt.Errorf("failed to create tokenizer from file")
 	}
+
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
@@ -108,10 +145,18 @@ func FromTiktoken(modelPath, configPath, pattern string) (*Tokenizer, error) {
 	cPattern := C.CString(pattern)
 	defer C.free(unsafe.Pointer(cPattern))
 
-	tokenizer := C.tokenizers_from_tiktoken(cModelPath, cConfigPath, cPattern)
+	var errPtr *C.char
+	tokenizer := C.tokenizers_from_tiktoken(cModelPath, cConfigPath, cPattern, &errPtr)
+
 	if tokenizer == nil {
+		if errPtr != nil {
+			errStr := C.GoString(errPtr)
+			C.tokenizers_free_string(errPtr)
+			return nil, fmt.Errorf("%s", errStr)
+		}
 		return nil, fmt.Errorf("failed to create tiktoken tokenizer")
 	}
+
 	return &Tokenizer{tokenizer: tokenizer}, nil
 }
 
