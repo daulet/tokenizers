@@ -6,6 +6,11 @@ package tokenizers
 #cgo LDFLAGS: -ltokenizers -ldl -lm -lstdc++
 #include <stdlib.h>
 #include "tokenizers.h"
+
+// Link-time version check: this will fail to link if the library version doesn't match
+// Using a global variable that references the function ensures the linker must resolve it
+extern void tokenizers_version_1_22_1(void);
+void (*tokenizers_version_check)(void) = &tokenizers_version_1_22_1;
 */
 import "C"
 
@@ -21,11 +26,7 @@ import (
 	"unsafe"
 )
 
-const (
-	WANT_VERSION = "1.22.0"
-
-	baseURL = "https://huggingface.co"
-)
+const baseURL = "https://huggingface.co"
 
 // List of necessary tokenizer files and their mandatory status.
 // True means mandatory, false means optional.
@@ -35,14 +36,6 @@ var tokenizerFiles = map[string]bool{
 	"merges.txt":              false,
 	"special_tokens_map.json": false,
 	"added_tokens.json":       false,
-}
-
-func init() {
-	version := C.tokenizers_version()
-	got := C.GoString(version)
-	if got != WANT_VERSION {
-		panic(fmt.Errorf("tokenizers library version mismatch, want: %s, got: %s", WANT_VERSION, got))
-	}
 }
 
 type Tokenizer struct {

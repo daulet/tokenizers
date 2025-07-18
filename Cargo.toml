@@ -1,8 +1,6 @@
 [package]
 name = "tokenizers"
-# Bump minor.patch version every time we bump tokenizers dependency version.
-# Can't bump major version because Go doesn't like major version >= 2.
-version = "1.22.0"
+version = "1.22.1"
 edition = "2021"
 
 [lib]

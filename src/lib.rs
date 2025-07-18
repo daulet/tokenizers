@@ -6,7 +6,13 @@ use tokenizers::tokenizer::Tokenizer;
 use serde::{Deserialize, Serialize};
 use tiktoken_rs;
 
-const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+// Version-specific symbol that will cause link failure if version doesn't match
+// Bump minor.patch version every time we bump tokenizers dependency version.
+// Can't bump major version because Go doesn't like major version >= 2.
+#[no_mangle]
+pub extern "C" fn tokenizers_version_1_22_1() {
+    // This function exists purely as a link-time version check
+}
 
 /// Truncation direction for tokenizer truncation
 #[repr(u8)]
@@ -166,11 +172,6 @@ pub struct tokenizers_buffer {
     tokens: *mut *mut libc::c_char,
     offsets: *mut usize,
     len: usize,
-}
-
-#[no_mangle]
-pub extern "C" fn tokenizers_version() -> *const libc::c_char {
-    std::ffi::CString::new(CARGO_PKG_VERSION).unwrap().into_raw()
 }
 
 #[no_mangle]
