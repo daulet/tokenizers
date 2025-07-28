@@ -6,6 +6,9 @@ use tokenizers::tokenizer::Tokenizer;
 use serde::{Deserialize, Serialize};
 use tiktoken_rs;
 
+mod chat_template;
+mod chat_template_ffi;
+
 // Version-specific symbol that will cause link failure if version doesn't match
 // Bump minor.patch version every time we bump tokenizers dependency version.
 // Can't bump major version because Go doesn't like major version >= 2.
@@ -117,33 +120,8 @@ impl UnifiedTokenizer {
                 } else {
                     ids.to_vec()
                 };
-                // Handle decode errors by trying to decode progressively fewer tokens
-                // until we find a valid UTF-8 sequence, then add replacement characters
-                // for the remaining tokens
-                match bpe.decode(tokens_to_decode.clone()) {
-                    Ok(decoded) => Ok(decoded),
-                    Err(_) if tokens_to_decode.is_empty() => Ok(String::new()),
-                    Err(_) => {
-                        // Try decoding progressively fewer tokens from the end
-                        let mut valid_prefix_len = tokens_to_decode.len() - 1;
-                        let mut decoded_prefix = String::new();
-                        
-                        while valid_prefix_len > 0 {
-                            if let Ok(decoded) = bpe.decode(tokens_to_decode[..valid_prefix_len].to_vec()) {
-                                decoded_prefix = decoded;
-                                break;
-                            }
-                            valid_prefix_len -= 1;
-                        }
-                        
-                        let remaining_tokens = tokens_to_decode.len() - valid_prefix_len;
-                        if remaining_tokens > 0 {
-                            decoded_prefix.push('\u{FFFD}');
-                        }
-                        
-                        Ok(decoded_prefix)
-                    }
-                }
+                bpe.decode(tokens_to_decode)
+                    .map_err(|e| e.into())
             }
         }
     }
@@ -712,76 +690,14 @@ mod tests {
             ("�", "Just replacement character should work"),
             ("\u{FFFD}", "Unicode escape replacement character should work"),
             (std::str::from_utf8(&[0xEF, 0xBF, 0xBD]).unwrap(), "UTF-8 bytes of replacement character should work"),
-            ("歪", "Multi token UTF-8 should work"),
         ];
         
         for (text, description) in test_cases {
             let ids = unified.encode(text, false)?;
             assert!(!ids.is_empty(), "{}: Expected non-empty token IDs for text: {:?}", description, text);
-
+            
             let decoded = unified.decode(&ids, false)?;
             assert_eq!(decoded, text, "{}: Decoded text should match original", description);
-            }
-        
-        Ok(())
-    }
-
-    #[test]
-    fn test_partial_decode() -> Result<(), Box<dyn std::error::Error>> {
-        // Test that tiktoken can handle incomplete UTF-8 by returning replacement characters
-        let unified = create_test_llama_tokenizer()?;
-        
-        // Test cases for partial and complete UTF-8 sequences
-        let test_cases = vec![
-            (vec![15722], "\u{FFFD}", "Partial decode should return replacement character"),
-            (vec![15722, 103], "歪", "Complete UTF-8 should decode correctly"),
-            (vec![15722, 103, 15722], "歪\u{FFFD}", "Partial decode should return replacement character"),
-            (vec![15722, 103, 15722, 103], "歪歪", "Complete UTF-8 should decode correctly"),
-        ];
-
-        for (ids, expected, description) in test_cases {
-            let decoded = unified.decode(&ids, false)?;
-            assert_eq!(decoded, expected, "{}: Decoded text should match expected", description);
-        }
-        
-        Ok(())
-    }
-
-    #[test]
-    fn test_partial_decode_multiple_tokens() -> Result<(), Box<dyn std::error::Error>> {
-        // Test the new approach with various scenarios
-        let unified = create_test_llama_tokenizer()?;
-        
-        // Encode "Hello 歪 world" and test various partial decodes
-        let full_text = "Hello 歪 world";
-        let ids = unified.encode(full_text, false)?;
-        
-        // Full decode should work
-        let decoded = unified.decode(&ids, false)?;
-        assert_eq!(decoded, full_text, "Full decode should work correctly");
-        
-        // Test decoding with the last token removed (might break UTF-8)
-        if ids.len() > 1 {
-            let partial_ids = &ids[..ids.len()-1];
-            let decoded_partial = unified.decode(partial_ids, false)?;
-            // This should either decode correctly or have replacement chars at the end
-            assert!(decoded_partial.contains("Hello"), "Partial decode should preserve valid prefix");
-        }
-        
-        // Test with just the incomplete UTF-8 tokens
-        let incomplete_utf8_ids = vec![15722]; // Just the first part of "歪"
-        let decoded_incomplete = unified.decode(&incomplete_utf8_ids, false)?;
-        assert_eq!(decoded_incomplete, "\u{FFFD}", "Single incomplete token should be replacement char");
-        
-        // Test with multiple tokens where the last few form incomplete UTF-8
-        let text_with_emoji = "Test 👋";
-        let emoji_ids = unified.encode(text_with_emoji, false)?;
-        if emoji_ids.len() > 2 {
-            // Remove last token to potentially break the emoji
-            let partial_emoji_ids = &emoji_ids[..emoji_ids.len()-1];
-            let decoded_partial_emoji = unified.decode(partial_emoji_ids, false)?;
-            assert!(decoded_partial_emoji.starts_with("Test"), "Should preserve 'Test' prefix");
-            // The emoji part should either decode correctly or be replaced
         }
         
         Ok(())

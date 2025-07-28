@@ -1,6 +1,6 @@
-# syntax=docker/dockerfile:1.3
+# syntax=docker/dockerfile:1.4
 
-FROM golang:1.21 as builder-go
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/golang:1.21.5 as builder-go
 ARG TARGETPLATFORM
 ARG VERSION=v0.6.0
 WORKDIR /workspace
