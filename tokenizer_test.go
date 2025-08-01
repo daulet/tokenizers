@@ -793,6 +793,7 @@ func TestChatTemplateDeepSeek(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create chat template: %v", err)
 	}
+	defer ct.Close()
 
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {
@@ -823,6 +824,7 @@ func TestChatTemplateQwen3(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create chat template: %v", err)
 	}
+	defer ct.Close()
 
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {

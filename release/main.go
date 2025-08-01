@@ -13,6 +13,7 @@ func chatTemplateDeepSeek() error {
 		fmt.Printf("NewChatTemplate error: %v\n", err)
 		return err
 	}
+	defer ct.Close()
 
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {
@@ -46,6 +47,7 @@ func chatTemplateQwen3() error {
 		fmt.Printf("Failed to create chat template: %v", err)
 		return err
 	}
+	defer ct.Close()
 
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {
