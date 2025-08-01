@@ -151,19 +151,20 @@ func chatTemplateDeepSeek() error {
 		fmt.Printf("NewChatTemplate error: %v\n", err)
 		return err
 	}
+	defer ct.Close()
 
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
-            "content": "你好吗"
+            "content": "Hello!"
         },
 		{
 			"role": "assistant",
-			"content": "你好，有什么我可以帮助你的吗？"
+			"content": "Hello! How can I assist you today?"
 		},
 		{
 			"role": "user",
-			"content": "你能做什么？"
+			"content": "What can you do?"
 		}
     ]`
 
@@ -184,19 +185,20 @@ func chatTemplateQwen3() error {
 		fmt.Printf("Failed to create chat template: %v", err)
 		return err
 	}
+	defer ct.Close()
 
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
-            "content": "你好吗"
+            "content": "hello!"
         },
 		{
 			"role": "assistant",
-			"content": "你好，有什么我可以帮助你的吗？"
+			"content": "Hello! How can I assist you today?"
 		},
 		{
 			"role": "user",
-			"content": "你能做什么？"
+			"content": "What can you do?"
 		}
     ]`
 

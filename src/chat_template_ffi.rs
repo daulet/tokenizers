@@ -2,10 +2,9 @@ use crate::chat_template::ChatTemplate;
 use crate::chat_template::{Message, TokenizerConfigToken, Tool};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-// use std::ptr;
 
 #[no_mangle]
-pub extern "C" fn new_chat_template(
+pub extern "C" fn tokenizers_new_chat_template(
     template: *const c_char,
     bos_token: *const c_char,
     eos_token: *const c_char,
@@ -29,7 +28,7 @@ pub extern "C" fn new_chat_template(
 }
 
 #[no_mangle]
-pub extern "C" fn apply_chat_template(
+pub extern "C" fn tokenizers_apply_chat_template(
     ptr: *mut ChatTemplate,
     messages_json: *const c_char,
     tools_json: *const c_char,
@@ -74,19 +73,10 @@ pub extern "C" fn apply_chat_template(
 }
 
 #[no_mangle]
-pub extern "C" fn free_chat_template(ptr: *mut ChatTemplate) {
+pub extern "C" fn tokenizers_free_chat_template(ptr: *mut ChatTemplate) {
     if !ptr.is_null() {
         unsafe {
             drop(Box::from_raw(ptr));
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn free_string(s: *mut c_char) {
-    if !s.is_null() {
-        unsafe {
-            drop(CString::from_raw(s));
         }
     }
 }

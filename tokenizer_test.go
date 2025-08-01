@@ -797,15 +797,15 @@ func TestChatTemplateDeepSeek(t *testing.T) {
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
-            "content": "你好吗"
+            "content": "Hello!"
         },
 		{
 			"role": "assistant",
-			"content": "你好，有什么我可以帮助你的吗？"
+			"content": "Hello! How can I assist you today?"
 		},
 		{
 			"role": "user",
-			"content": "你能做什么？"
+			"content": "What can you do?"
 		}
     ]`
 
@@ -827,15 +827,15 @@ func TestChatTemplateQwen3(t *testing.T) {
 	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
-            "content": "你好吗"
+            "content": "How are you?"
         },
 		{
 			"role": "assistant",
-			"content": "你好，有什么我可以帮助你的吗？"
+			"content": "Hello! How can I assist you today?"
 		},
 		{
 			"role": "user",
-			"content": "你能做什么？"
+			"content": "What can you do?"
 		}
     ]`
 

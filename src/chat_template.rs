@@ -1,22 +1,9 @@
-
-// use crate::infer::InferError;
-// use crate::{
-// Message, MessageBody, MessageChunk, TextMessage, TokenizerConfigToken, Tool,
-// };
 use chrono::Local;
 use minijinja::{Environment, ErrorKind, Template};
 use minijinja_contrib::pycompat;
 
-// use crate::infer::tool_grammar::ToolGrammar;
-// use crate::infer::{Infer, InferError};
-// use pyo3::prelude::*;
-// use pyo3::types::IntoPyDict;
 use serde::{Deserialize, Serialize};
-// use tokenizers::Encoding;
-// use tracing::warn;
 use utoipa::ToSchema;
-// use uuid::Uuid;
-// use validation::Validation;
 /// Raise a exception (custom function) used in the chat templates
 pub(crate) fn raise_exception(err_text: String) -> Result<String, minijinja::Error> {
     Err(minijinja::Error::new(ErrorKind::SyntaxError, err_text))

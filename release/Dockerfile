@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/rust:1.87 as builder-rust
+FROM rust:1.87 as builder-rust
 ARG TARGETPLATFORM
 WORKDIR /workspace
 COPY ./benches ./benches
@@ -9,7 +9,7 @@ COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
 RUN cargo build --release
 
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/golang:1.21.5 as builder-go
+FROM golang:1.21.5 as builder-go
 ARG DOCKER_TARGETPLATFORM
 WORKDIR /workspace
 COPY ./release/go.mod   .

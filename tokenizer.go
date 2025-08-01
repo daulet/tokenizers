@@ -191,7 +191,13 @@ func FromPretrained(modelID string, opts ...TokenizerConfigOption) (*Tokenizer, 
 	}
 
 	// Construct the model URL
-	modelURL := fmt.Sprintf("%s/%s/resolve/main", baseURL, modelID)
+	modelURL := ""
+	hfEndpoint, exist := os.LookupEnv("HF_ENDPOINT")
+	if exist {
+		modelURL = fmt.Sprintf("%s/%s/resolve/main", hfEndpoint, modelID)
+	} else {
+		modelURL = fmt.Sprintf("%s/%s/resolve/main", baseURL, modelID)
+	}
 
 	// Determine the download directory
 	var downloadDir string
@@ -475,18 +481,6 @@ func (t *Tokenizer) VocabSize() uint32 {
 	return uint32(C.tokenizers_vocab_size(t.tokenizer))
 }
 
-// // Message corresponds to the Rust Message struct (simplified for JSON serialization)
-// type Message struct {
-// 	Role    string      `json:"role"`
-// 	Content interface{} `json:"content"` // Can be string or list of chunks
-// }
-
-// // Tool corresponds to the Rust Tool struct (simplified for JSON serialization)
-// type Tool struct {
-// 	Type     string         `json:"type"`
-// 	Function map[string]any `json:"function"`
-// }
-
 type ChatTemplate struct {
 	ChatTemplate unsafe.Pointer
 }
@@ -496,8 +490,11 @@ func NewChatTemplate(configFilePath string) (*ChatTemplate, error) {
 	if err != nil {
 		return nil, err
 	}
-	templateStr := gjson.Get(string(config), "chat_template").String()
-	cTemplate := C.CString(templateStr)
+	templateStr := gjson.Get(string(config), "chat_template")
+	if !templateStr.Exists() {
+		return nil, errors.New("chat_template not found in config file")
+	}
+	cTemplate := C.CString(templateStr.String())
 	defer C.free(unsafe.Pointer(cTemplate))
 
 	bosTokenStr := ""
@@ -524,17 +521,17 @@ func NewChatTemplate(configFilePath string) (*ChatTemplate, error) {
 	cEosToken := C.CString(eosTokenStr)
 	defer C.free(unsafe.Pointer(cEosToken))
 
-	// ct := C.chat_template_new(cTemplate, cBosToken, cErr)
-
-	// cErr := C.CString("")
-	// defer C.free(unsafe.Pointer(cErr))
-
-	cChatTemplate := C.new_chat_template(cTemplate, cBosToken, cEosToken)
-	// defer C.free_chat_template(cChatTemplate)
+	cChatTemplate := C.tokenizers_new_chat_template(cTemplate, cBosToken, cEosToken)
 	if cChatTemplate == nil {
 		return nil, errors.New("Failed to create ChatTemplate, chattemplate is nil")
 	}
 	return &ChatTemplate{ChatTemplate: cChatTemplate}, nil
+}
+
+func (t *ChatTemplate) Close() error {
+	C.tokenizers_free_chat_template(t.ChatTemplate)
+	t.ChatTemplate = nil
+	return nil
 }
 
 func (c *ChatTemplate) ApplyChatTemplate(messages string, tools, tool_prompt string) (string, error) {
@@ -546,9 +543,9 @@ func (c *ChatTemplate) ApplyChatTemplate(messages string, tools, tool_prompt str
 	defer C.free(unsafe.Pointer(cToolPrompt))
 
 	var cError *C.char
-	result := C.apply_chat_template(c.ChatTemplate, cMessages, cTools, cToolPrompt, &cError)
-	defer C.free_string(result)
-	defer C.free_string(cError)
+	result := C.tokenizers_apply_chat_template(c.ChatTemplate, cMessages, cTools, cToolPrompt, &cError)
+	defer C.tokenizers_free_string(result)
+	defer C.tokenizers_free_string(cError)
 	if cError != nil {
 		err := C.GoString(cError)
 		return "", fmt.Errorf("failed to apply chat template: %s", err)
