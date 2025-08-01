@@ -2,6 +2,7 @@ package tokenizers_test
 
 import (
 	_ "embed"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -783,4 +784,66 @@ func validateCache(t *testing.T, dir string, modelID string) {
 			t.Errorf("expected file %s to exist in cache for model %s", file, modelID)
 		}
 	}
+}
+
+func TestChatTemplateDeepSeek(t *testing.T) {
+	// template := `{% for message in messages %}{% if message.role == 'user' %}{{ 'User: ' + message.content }}{% else %}{{ 'Assistant: ' + message.content }}{% endif %}{% endfor %}`
+	template := "test/data/deepseek-ai/DeepSeek-R1/tokenizer_config.json"
+	ct, err := tokenizers.NewChatTemplate(template)
+	if err != nil {
+		t.Fatalf("Failed to create chat template: %v", err)
+	}
+	defer ct.Close()
+
+	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "Hello!"
+        },
+		{
+			"role": "assistant",
+			"content": "Hello! How can I assist you today?"
+		},
+		{
+			"role": "user",
+			"content": "What can you do?"
+		}
+    ]`
+
+	result, err := ct.ApplyChatTemplate(messages_str, "", "")
+	if err != nil {
+		t.Fatalf("Failed to apply chat template: %v", err)
+	}
+	fmt.Println(result)
+}
+
+func TestChatTemplateQwen3(t *testing.T) {
+	// template := `{% for message in messages %}{% if message.role == 'user' %}{{ 'User: ' + message.content }}{% else %}{{ 'Assistant: ' + message.content }}{% endif %}{% endfor %}`
+	template := "test/data/Qwen/Qwen3-235B-A22B/tokenizer_config.json"
+	ct, err := tokenizers.NewChatTemplate(template)
+	if err != nil {
+		t.Fatalf("Failed to create chat template: %v", err)
+	}
+	defer ct.Close()
+
+	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "How are you?"
+        },
+		{
+			"role": "assistant",
+			"content": "Hello! How can I assist you today?"
+		},
+		{
+			"role": "user",
+			"content": "What can you do?"
+		}
+    ]`
+
+	result, err := ct.ApplyChatTemplate(messages_str, "", "")
+	if err != nil {
+		t.Fatalf("Failed to apply chat template: %v", err)
+	}
+	fmt.Println(result)
 }

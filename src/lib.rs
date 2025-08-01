@@ -6,6 +6,9 @@ use tokenizers::tokenizer::Tokenizer;
 use serde::{Deserialize, Serialize};
 use tiktoken_rs;
 
+mod chat_template;
+mod chat_template_ffi;
+
 // Version-specific symbol that will cause link failure if version doesn't match
 // Bump minor.patch version every time we bump tokenizers dependency version.
 // Can't bump major version because Go doesn't like major version >= 2.

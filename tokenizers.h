@@ -46,3 +46,9 @@ void tokenizers_free_tokenizer(void *ptr);
 void tokenizers_free_buffer(struct tokenizers_buffer buffer);
 
 void tokenizers_free_string(char *string);
+
+void* tokenizers_new_chat_template(const char *tmplt, const char *bos_token, const char *eos_token);
+
+char *tokenizers_apply_chat_template(void *ptr, const char *messages, const char *tools, const char *tool_prompt, char **error);
+
+void tokenizers_free_chat_template(void *ptr);

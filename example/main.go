@@ -144,6 +144,72 @@ func tiktoken() error {
 	return nil
 }
 
+func chatTemplateDeepSeek() error {
+	template := "test/data/deepseek-ai/DeepSeek-R1/tokenizer_config.json"
+	ct, err := tokenizers.NewChatTemplate(template)
+	if err != nil {
+		fmt.Printf("NewChatTemplate error: %v\n", err)
+		return err
+	}
+	defer ct.Close()
+
+	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "Hello!"
+        },
+		{
+			"role": "assistant",
+			"content": "Hello! How can I assist you today?"
+		},
+		{
+			"role": "user",
+			"content": "What can you do?"
+		}
+    ]`
+
+	result, err := ct.ApplyChatTemplate(messages_str, "", "")
+	if err != nil {
+		fmt.Printf("Failed to apply chat template: %v", err)
+		return err
+	}
+	fmt.Println(result)
+	return nil
+}
+
+func chatTemplateQwen3() error {
+
+	template := "test/data/Qwen/Qwen3-235B-A22B/tokenizer_config.json"
+	ct, err := tokenizers.NewChatTemplate(template)
+	if err != nil {
+		fmt.Printf("Failed to create chat template: %v", err)
+		return err
+	}
+	defer ct.Close()
+
+	messages_str := `[{"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "hello!"
+        },
+		{
+			"role": "assistant",
+			"content": "Hello! How can I assist you today?"
+		},
+		{
+			"role": "user",
+			"content": "What can you do?"
+		}
+    ]`
+
+	result, err := ct.ApplyChatTemplate(messages_str, "", "")
+	if err != nil {
+		fmt.Printf("Failed to apply chat template: %v", err)
+	}
+	fmt.Println(result)
+	return nil
+}
+
 func main() {
 	if err := simple(); err != nil {
 		log.Fatal(err)
@@ -152,6 +218,12 @@ func main() {
 		log.Fatal(err)
 	}
 	if err := tiktoken(); err != nil {
+		log.Fatal(err)
+	}
+	if err := chatTemplateDeepSeek(); err != nil {
+		log.Fatal(err)
+	}
+	if err := chatTemplateQwen3(); err != nil {
 		log.Fatal(err)
 	}
 }
