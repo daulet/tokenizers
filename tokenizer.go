@@ -44,6 +44,7 @@ type Tokenizer struct {
 
 type tokenizerOpts struct {
 	encodeSpecialTokens C.bool
+	bpeCacheCapacity    C.uint
 }
 
 type TokenizerOption func(to *tokenizerOpts)
@@ -51,6 +52,12 @@ type TokenizerOption func(to *tokenizerOpts)
 func WithEncodeSpecialTokens() TokenizerOption {
 	return func(to *tokenizerOpts) {
 		to.encodeSpecialTokens = C.bool(true)
+	}
+}
+
+func WithBpeCacheCapacity(capacity uint32) TokenizerOption {
+	return func(to *tokenizerOpts) {
+		to.bpeCacheCapacity = C.uint(capacity)
 	}
 }
 
@@ -71,6 +78,8 @@ func FromBytes(data []byte, opts ...TokenizerOption) (*Tokenizer, error) {
 	allOpts := &tokenizerOpts{
 		// by default, we do not encode special tokens
 		encodeSpecialTokens: C.bool(false),
+		// by default, use 10000 cache capacity (matches HuggingFace default)
+		bpeCacheCapacity: C.uint(10000),
 	}
 	for _, opt := range opts {
 		opt(allOpts)
@@ -470,4 +479,12 @@ func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
 
 func (t *Tokenizer) VocabSize() uint32 {
 	return uint32(C.tokenizers_vocab_size(t.tokenizer))
+}
+
+func (t *Tokenizer) SetBpeCacheCapacity(capacity uint32) {
+	C.tokenizers_set_bpe_cache_capacity(t.tokenizer, C.uint(capacity))
+}
+
+func (t *Tokenizer) ClearBpeCache() {
+	C.tokenizers_clear_bpe_cache(t.tokenizer)
 }

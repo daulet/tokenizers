@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use std::ptr;
 use std::collections::HashMap;
 use tokenizers::tokenizer::Tokenizer;
+// use tokenizers::models::bpe::BPE; // TODO: For future direct BPE access
 use serde::{Deserialize, Serialize};
+use serde_json;
 use tiktoken_rs;
 
 // Version-specific symbol that will cause link failure if version doesn't match
@@ -171,6 +173,36 @@ impl UnifiedTokenizer {
         matches!(self, UnifiedTokenizer::HuggingFace(_))
     }
 
+    pub fn set_bpe_cache_capacity(&mut self, _capacity: u32) {
+        match self {
+            UnifiedTokenizer::HuggingFace(ref mut _tokenizer) => {
+                // Try to access the model as BPE - this requires importing the specific model types
+                // Since we can't directly access the model internals, we'll need to work with 
+                // the tokenizer configuration or modify the tokenizer creation process
+                
+                // For now, we'll add a placeholder that can be extended when the tokenizer
+                // architecture allows direct model access
+                // TODO: Implement BPE cache capacity setting for HuggingFace tokenizers
+            }
+            UnifiedTokenizer::Tiktoken(_, _, _, _) => {
+                // TikToken doesn't have configurable cache capacity in tiktoken_rs
+                // This is a limitation of the current tiktoken_rs implementation
+            }
+        }
+    }
+
+    pub fn clear_bpe_cache(&mut self) {
+        match self {
+            UnifiedTokenizer::HuggingFace(ref mut _tokenizer) => {
+                // Similar to set_bpe_cache_capacity, we need proper access to the model
+                // TODO: Implement BPE cache clearing for HuggingFace tokenizers
+            }
+            UnifiedTokenizer::Tiktoken(_, _, _, _) => {
+                // TikToken doesn't have cache clearing in tiktoken_rs
+                // This is a limitation of the current tiktoken_rs implementation
+            }
+        }
+    }
 
 }
 
@@ -186,7 +218,10 @@ pub struct EncodingDetails {
 #[repr(C)]
 pub struct tokenizers_options {
     encode_special_tokens: bool,
+    bpe_cache_capacity: u32,
 }
+
+const DEFAULT_BPE_CACHE_CAPACITY: u32 = 10000;
 
 #[repr(C)]
 pub struct tokenizers_buffer {
@@ -210,7 +245,7 @@ pub extern "C" fn tokenizers_from_bytes(bytes: *const u8, len: u32, opts: &token
     }
     
     let bytes_slice = unsafe { std::slice::from_raw_parts(bytes, len as usize) };
-    match Tokenizer::from_bytes(bytes_slice) {
+    match create_tokenizer_with_cache_config(bytes_slice, opts.bpe_cache_capacity) {
         Ok(mut tokenizer) => {
             tokenizer.set_encode_special_tokens(opts.encode_special_tokens);
             let unified = UnifiedTokenizer::HuggingFace(tokenizer);
@@ -303,15 +338,27 @@ pub extern "C" fn tokenizers_from_file(config: *const libc::c_char, error: *mut 
     };
     
     let config_path = PathBuf::from(config_str);
-    match Tokenizer::from_file(&config_path) {
-        Ok(tokenizer) => {
-            let unified = UnifiedTokenizer::HuggingFace(tokenizer);
-            let ptr = Box::into_raw(Box::new(unified));
-            ptr.cast()
+    // For file-based tokenizers, we'll read the file and use our cache-aware creation
+    match std::fs::read(&config_path) {
+        Ok(file_bytes) => {
+            match create_tokenizer_with_cache_config(&file_bytes, DEFAULT_BPE_CACHE_CAPACITY) {
+                Ok(tokenizer) => {
+                    let unified = UnifiedTokenizer::HuggingFace(tokenizer);
+                    let ptr = Box::into_raw(Box::new(unified));
+                    ptr.cast()
+                }
+                Err(e) => {
+                    if !error.is_null() {
+                        let err_msg = std::ffi::CString::new(format!("Failed to create tokenizer with cache config: {}", e)).unwrap();
+                        unsafe { *error = err_msg.into_raw(); }
+                    }
+                    ptr::null_mut()
+                }
+            }
         }
         Err(e) => {
             if !error.is_null() {
-                let err_msg = std::ffi::CString::new(format!("Failed to load tokenizer from file '{}': {}", config_str, e)).unwrap();
+                let err_msg = std::ffi::CString::new(format!("Failed to read tokenizer file '{}': {}", config_str, e)).unwrap();
                 unsafe { *error = err_msg.into_raw(); }
             }
             ptr::null_mut()
@@ -601,6 +648,36 @@ pub extern "C" fn tokenizers_free_string(ptr: *mut libc::c_char) {
     unsafe {
         drop(std::ffi::CString::from_raw(ptr));
     }
+}
+
+#[no_mangle]
+pub extern "C" fn tokenizers_set_bpe_cache_capacity(ptr: *mut libc::c_void, capacity: u32) {
+    if ptr.is_null() {
+        return;
+    }
+    
+    let unified_tokenizer = unsafe {
+        match ptr.cast::<UnifiedTokenizer>().as_mut() {
+            Some(tokenizer) => tokenizer,
+            None => return
+        }
+    };
+    unified_tokenizer.set_bpe_cache_capacity(capacity);
+}
+
+#[no_mangle]
+pub extern "C" fn tokenizers_clear_bpe_cache(ptr: *mut libc::c_void) {
+    if ptr.is_null() {
+        return;
+    }
+    
+    let unified_tokenizer = unsafe {
+        match ptr.cast::<UnifiedTokenizer>().as_mut() {
+            Some(tokenizer) => tokenizer,
+            None => return
+        }
+    };
+    unified_tokenizer.clear_bpe_cache();
 }
 
 #[cfg(test)]
@@ -1093,4 +1170,32 @@ pub struct AddedToken {
     rstrip: bool,
     single_word: bool,
     special: bool,
+}
+
+/// Creates a tokenizer from bytes with BPE cache capacity configuration
+/// This function modifies the tokenizer JSON to set cache_capacity for BPE models
+fn create_tokenizer_with_cache_config(bytes: &[u8], cache_capacity: u32) -> Result<Tokenizer, Box<dyn std::error::Error>> {
+    // Parse the tokenizer JSON
+    let mut tokenizer_json: serde_json::Value = serde_json::from_slice(bytes)?;
+    
+    // Set cache capacity if it's a BPE model
+    if let Some(model) = tokenizer_json.get_mut("model") {
+        if let Some(model_type) = model.get("type") {
+            if model_type == "BPE" {
+                // Set cache_capacity in the BPE model configuration
+                let capacity = if cache_capacity == 0 { 
+                    DEFAULT_BPE_CACHE_CAPACITY 
+                } else { 
+                    cache_capacity 
+                };
+                model.as_object_mut()
+                    .unwrap()
+                    .insert("cache_capacity".to_string(), serde_json::Value::from(capacity));
+            }
+        }
+    }
+    
+    // Convert back to bytes and create tokenizer
+    let modified_bytes = serde_json::to_vec(&tokenizer_json)?;
+    Tokenizer::from_bytes(&modified_bytes).map_err(|e| format!("Failed to create tokenizer: {}", e).into())
 }
