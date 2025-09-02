@@ -13,6 +13,7 @@ struct tokenizers_encode_options {
 
 struct tokenizers_options {
   bool encode_special_tokens;
+  uint32_t bpe_cache_capacity;  // 0 = disabled, DEFAULT_CACHE_CAPACITY = 10000
 };
 
 struct tokenizers_buffer {
@@ -46,3 +47,7 @@ void tokenizers_free_tokenizer(void *ptr);
 void tokenizers_free_buffer(struct tokenizers_buffer buffer);
 
 void tokenizers_free_string(char *string);
+
+// BPE cache management functions
+void tokenizers_set_bpe_cache_capacity(void *ptr, uint32_t capacity);
+void tokenizers_clear_bpe_cache(void *ptr);
