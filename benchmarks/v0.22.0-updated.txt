@@ -1,0 +1,24 @@
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir382899756/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir382899756/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-2541526615/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-2541526615/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir2180667502/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir2180667502/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3669820753/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3669820753/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir3380676810/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir3380676810/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3351271905/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3351271905/tokenizer.json
+goos: darwin
+goarch: arm64
+pkg: github.com/daulet/tokenizers
+cpu: Apple M1 Pro
+BenchmarkEncodeNTimes/huggingface-8         	  141444	      8639 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/huggingface-8         	  137928	      8934 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/huggingface-8         	  137355	      8612 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  362643	      3346 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  338979	      3655 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  361132	      3319 ns/op	      88 B/op	       4 allocs/op
+PASS
+ok  	github.com/daulet/tokenizers	9.784s
