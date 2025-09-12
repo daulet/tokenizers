@@ -138,7 +138,7 @@ impl UnifiedTokenizer {
                         
                         let remaining_tokens = tokens_to_decode.len() - valid_prefix_len;
                         if remaining_tokens > 0 {
-                            decoded_prefix.push('\u{FFFD}');
+                            decoded_prefix.push_str(&"\u{FFFD}".repeat(remaining_tokens));
                         }
                         
                         Ok(decoded_prefix)
@@ -737,6 +737,7 @@ mod tests {
             (vec![15722, 103], "歪", "Complete UTF-8 should decode correctly"),
             (vec![15722, 103, 15722], "歪\u{FFFD}", "Partial decode should return replacement character"),
             (vec![15722, 103, 15722, 103], "歪歪", "Complete UTF-8 should decode correctly"),
+            (vec![15722, 103, 15722, 15722], "歪\u{FFFD}\u{FFFD}", "Multiple non-decoded tokens should return replacement characters"),
         ];
 
         for (ids, expected, description) in test_cases {
