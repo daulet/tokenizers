@@ -8,7 +8,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 libc = "0.2.162"
-tokenizers = {version = "0.20.2" }
+tokenizers = {version = "0.22.0" }
 tiktoken-rs = "0.7.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"

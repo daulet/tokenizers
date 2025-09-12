@@ -1,0 +1,7 @@
+Benchmark comparison v0.20.2 vs v0.22.0:
+
+HuggingFace tokenizers performance:
+v0.20.2: ~9000-11000 ns/op, 256 B/op, 12 allocs/op
+v0.22.0: ~8600-8900 ns/op, 256 B/op, 12 allocs/op
+
+Improvement: ~3-6% faster encoding with same memory allocation

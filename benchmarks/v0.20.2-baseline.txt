@@ -1,0 +1,44 @@
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir2710378919/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir2710378919/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3999902700/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3999902700/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir2809389495/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir2809389495/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-2033426091/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-2033426091/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir1751608578/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir1751608578/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-80255343/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-80255343/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir3140784636/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir3140784636/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-2098545267/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-2098545267/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir1647636373/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir1647636373/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3578859437/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-3578859437/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir840495484/001/bert-base-uncased/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/TestFromPretrainedvalid_public_model_with_cache_dir840495484/001/bert-base-uncased/tokenizer.json
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-51965006/vocab.txt
+Successfully downloaded /var/folders/w5/wm3bq7bj62d99v6mlhybyngw0000gn/T/huggingface-tokenizer-51965006/tokenizer.json
+goos: darwin
+goarch: arm64
+pkg: github.com/daulet/tokenizers
+cpu: Apple M1 Pro
+BenchmarkEncodeNTimes/huggingface-8         	  134212	     11367 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/huggingface-8         	  131604	      9266 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/huggingface-8         	  135462	      9080 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/huggingface-8         	  132289	      9070 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/huggingface-8         	  134002	      9141 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/huggingface-8         	  135302	      9070 ns/op	     256 B/op	      12 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  360900	      3361 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  360146	      3340 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  359680	      3399 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  356170	      3333 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  361600	      3355 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNTimes/tiktoken-8            	  361251	      3345 ns/op	      88 B/op	       4 allocs/op
+BenchmarkEncodeNChars/huggingface-8         	570240398	         2.288 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars/huggingface-8         	1000000000	         2.588 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars/huggingface-8         	1000000000	         1.444 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeNChars/huggingface-8         	
