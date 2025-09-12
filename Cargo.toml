@@ -8,7 +8,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 libc = "0.2.162"
-tokenizers = {version = "0.20.2" }
+tokenizers = {version = "0.22.0" }
 tiktoken-rs = { git = "https://github.com/steved/tiktoken-rs", branch = "steved/bump-fancy-regex" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
