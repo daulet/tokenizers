@@ -10,7 +10,7 @@ use tiktoken_rs;
 // Bump minor.patch version every time we bump tokenizers dependency version.
 // Can't bump major version because Go doesn't like major version >= 2.
 #[no_mangle]
-pub extern "C" fn tokenizers_version_1_22_1() {
+pub extern "C" fn tokenizers_version_1_23_0() {
     // This function exists purely as a link-time version check
 }
 

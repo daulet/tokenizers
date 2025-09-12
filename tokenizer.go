@@ -9,8 +9,8 @@ package tokenizers
 
 // Link-time version check: this will fail to link if the library version doesn't match
 // Using a global variable that references the function ensures the linker must resolve it
-extern void tokenizers_version_1_22_1(void);
-void (*tokenizers_version_check)(void) = &tokenizers_version_1_22_1;
+extern void tokenizers_version_1_23_0(void);
+void (*tokenizers_version_check)(void) = &tokenizers_version_1_23_0;
 */
 import "C"
 

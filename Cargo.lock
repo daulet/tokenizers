@@ -1003,7 +1003,7 @@ dependencies = [
 
 [[package]]
 name = "tokenizers"
-version = "1.22.1"
+version = "1.23.0"
 dependencies = [
  "base64 0.22.1",
  "criterion",
