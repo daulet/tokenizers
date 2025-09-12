@@ -433,15 +433,15 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
     let message_cow = String::from_utf8_lossy(message_bytes);
     let message = message_cow.as_ref();
 
-    let encoding_details = match unified_tokenizer.encode_with_details(message, options.add_special_tokens) {
-        Ok(details) => details,
-        Err(_) => return tokenizers_buffer { 
-            ids: ptr::null_mut(), 
-            tokens: ptr::null_mut(), 
-            len: 0, 
-            type_ids: ptr::null_mut(), 
-            special_tokens_mask: ptr::null_mut(), 
-            attention_mask: ptr::null_mut(), 
+    let encoding_details = match std::panic::catch_unwind(|| { unified_tokenizer.encode_with_details(message, options.add_special_tokens) }) {
+        Ok(Ok(details)) => details,
+        Ok(Err(_)) | Err(_) => return tokenizers_buffer {
+            ids: ptr::null_mut(),
+            tokens: ptr::null_mut(),
+            len: 0,
+            type_ids: ptr::null_mut(),
+            special_tokens_mask: ptr::null_mut(),
+            attention_mask: ptr::null_mut(),
             offsets: ptr::null_mut()
         }
     };
