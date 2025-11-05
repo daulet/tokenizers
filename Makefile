@@ -25,7 +25,7 @@ release-linux-%: test
 	mkdir -p artifacts/all
 	cp artifacts/linux-$*/libtokenizers.linux-$*.tar.gz artifacts/all/libtokenizers.linux-$*.tar.gz
 
-release: release-darwin-aarch64 release-darwin-x86_64 release-linux-arm64 release-linux-x86_64
+release: release-darwin-aarch64 release-darwin-x86_64 release-linux-arm64 release-linux-x86_64 release-linux-s390x release-linux-ppc64le
 	cp artifacts/all/libtokenizers.darwin-aarch64.tar.gz artifacts/all/libtokenizers.darwin-arm64.tar.gz
 	cp artifacts/all/libtokenizers.linux-arm64.tar.gz artifacts/all/libtokenizers.linux-aarch64.tar.gz
 	cp artifacts/all/libtokenizers.linux-x86_64.tar.gz artifacts/all/libtokenizers.linux-amd64.tar.gz
