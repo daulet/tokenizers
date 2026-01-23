@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokenizers WASM Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #555;
+            font-size: 1.1em;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #444;
+        }
+        input[type="text"], input[type="url"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        textarea {
+            min-height: 100px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        button {
+            background: #4a90d9;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .token-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .token {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .token:hover {
+            background: #dee2e6;
+        }
+        .checkbox-group {
+            margin-bottom: 10px;
+        }
+        .checkbox-group label {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 15px;
+            font-weight: normal;
+        }
+        .checkbox-group input {
+            margin-right: 5px;
+        }
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        .flex-row > * {
+            flex: 1;
+        }
+        .flex-row button {
+            flex: 0 0 auto;
+        }
+        #loadingIndicator {
+            display: none;
+            color: #666;
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tokenizers WASM Demo</h1>
+
+    <div class="section">
+        <h2>1. Load Tokenizer</h2>
+        <div class="flex-row">
+            <div>
+                <label for="tokenizerUrl">Tokenizer URL (tokenizer.json)</label>
+                <input type="url" id="tokenizerUrl"
+                    placeholder="https://huggingface.co/bert-base-uncased/resolve/main/tokenizer.json"
+                    value="https://huggingface.co/bert-base-uncased/resolve/main/tokenizer.json">
+            </div>
+            <button id="loadFromUrl" disabled>Load from URL</button>
+        </div>
+        <p style="text-align: center; color: #666; margin: 10px 0;">- or -</p>
+        <div>
+            <label for="tokenizerFile">Load from file</label>
+            <input type="file" id="tokenizerFile" accept=".json" disabled>
+        </div>
+        <div id="loadStatus"></div>
+        <div id="loadHelp" class="status info hidden"></div>
+        <div id="tokenizerInfo" class="hidden">
+            <strong>Vocabulary size:</strong> <span id="vocabSize"></span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. Encode Text</h2>
+        <label for="encodeInput">Text to encode</label>
+        <textarea id="encodeInput" placeholder="Enter text to tokenize...">Hello, world! This is a test of the tokenizer.</textarea>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="addSpecialTokens" checked> Add special tokens</label>
+            <label><input type="checkbox" id="showTokens" checked> Show tokens</label>
+            <label><input type="checkbox" id="showOffsets"> Show offsets</label>
+        </div>
+        <button id="encodeBtn" disabled>Encode</button>
+        <div id="encodeResult" class="hidden">
+            <h3>Token IDs (<span id="tokenCount">0</span> tokens)</h3>
+            <div id="idsResult" class="result"></div>
+            <div id="tokensResult" class="hidden">
+                <h3>Tokens</h3>
+                <div class="token-list" id="tokensList"></div>
+            </div>
+            <div id="offsetsResult" class="hidden">
+                <h3>Offsets</h3>
+                <div id="offsetsList" class="result"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>3. Decode Token IDs</h2>
+        <label for="decodeInput">Token IDs (comma or space separated)</label>
+        <textarea id="decodeInput" placeholder="Enter token IDs like: 101, 7592, 102"></textarea>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="skipSpecialTokens"> Skip special tokens</label>
+        </div>
+        <button id="decodeBtn" disabled>Decode</button>
+        <div id="decodeResult" class="hidden">
+            <h3>Decoded Text</h3>
+            <div id="decodedText" class="result"></div>
+        </div>
+    </div>
+
+    <div id="loadingIndicator">Loading WASM module...</div>
+
+    <script type="module">
+        import init, { WasmTokenizer } from './pkg/tokenizers_wasm.js';
+
+        let tokenizer = null;
+
+        async function initWasm() {
+            const loading = document.getElementById('loadingIndicator');
+            loading.style.display = 'block';
+            try {
+                await init();
+                loading.style.display = 'none';
+                enableLoadControls(true);
+                console.log('WASM module loaded');
+            } catch (e) {
+                loading.textContent = 'Failed to load WASM module: ' + e.message;
+                loading.style.color = 'red';
+                enableLoadControls(false);
+                console.error('Failed to load WASM:', e);
+            }
+        }
+
+        function showStatus(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            el.className = 'status ' + type;
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+
+        function showHelp(message) {
+            const el = document.getElementById('loadHelp');
+            if (message) {
+                el.innerHTML = message;
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+                el.textContent = '';
+            }
+        }
+
+        function enableControls(enabled) {
+            document.getElementById('encodeBtn').disabled = !enabled;
+            document.getElementById('decodeBtn').disabled = !enabled;
+        }
+
+        function enableLoadControls(enabled) {
+            document.getElementById('loadFromUrl').disabled = !enabled;
+            document.getElementById('tokenizerFile').disabled = !enabled;
+        }
+
+        async function loadFromUrl() {
+            const url = document.getElementById('tokenizerUrl').value.trim();
+            if (!url) {
+                showStatus('loadStatus', 'Please enter a URL', 'error');
+                return;
+            }
+
+            showStatus('loadStatus', 'Loading tokenizer...', 'info');
+            showHelp('');
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const json = await response.text();
+                tokenizer = WasmTokenizer.fromString(json);
+
+                document.getElementById('vocabSize').textContent = tokenizer.vocabSize().toLocaleString();
+                document.getElementById('tokenizerInfo').classList.remove('hidden');
+                showStatus('loadStatus', 'Tokenizer loaded successfully!', 'success');
+                enableControls(true);
+            } catch (e) {
+                const isCorsError = e instanceof TypeError;
+                if (isCorsError) {
+                    showHelp(
+                        `CORS blocked this request. <a href="${url}" target="_blank" rel="noopener">Download tokenizer.json</a> and load it from file.`
+                    );
+                } else {
+                    showHelp('');
+                }
+                showStatus('loadStatus', 'Failed to load tokenizer: ' + e.message, 'error');
+                enableControls(false);
+            }
+        }
+
+        async function loadFromFile(file) {
+            showStatus('loadStatus', 'Loading tokenizer...', 'info');
+            showHelp('');
+
+            try {
+                const text = await file.text();
+                tokenizer = WasmTokenizer.fromString(text);
+
+                document.getElementById('vocabSize').textContent = tokenizer.vocabSize().toLocaleString();
+                document.getElementById('tokenizerInfo').classList.remove('hidden');
+                showStatus('loadStatus', `Tokenizer loaded from ${file.name}`, 'success');
+                enableControls(true);
+            } catch (e) {
+                showHelp('');
+                showStatus('loadStatus', 'Failed to load tokenizer: ' + e.message, 'error');
+                enableControls(false);
+            }
+        }
+
+        function encode() {
+            const text = document.getElementById('encodeInput').value;
+            const addSpecialTokens = document.getElementById('addSpecialTokens').checked;
+            const showTokens = document.getElementById('showTokens').checked;
+            const showOffsets = document.getElementById('showOffsets').checked;
+
+            try {
+                const result = tokenizer.encodeWithDetails(
+                    text,
+                    addSpecialTokens,
+                    showTokens,  // return_tokens
+                    false,       // return_type_ids
+                    false,       // return_attention_mask
+                    false,       // return_special_tokens_mask
+                    showOffsets  // return_offsets
+                );
+
+                document.getElementById('tokenCount').textContent = result.ids.length;
+                document.getElementById('idsResult').textContent = '[' + result.ids.join(', ') + ']';
+                document.getElementById('encodeResult').classList.remove('hidden');
+
+                // Show tokens if requested
+                const tokensResultDiv = document.getElementById('tokensResult');
+                if (showTokens && result.tokens) {
+                    const tokensList = document.getElementById('tokensList');
+                    tokensList.innerHTML = '';
+                    result.tokens.forEach((token, i) => {
+                        const span = document.createElement('span');
+                        span.className = 'token';
+                        span.textContent = token;
+                        span.title = `ID: ${result.ids[i]}`;
+                        tokensList.appendChild(span);
+                    });
+                    tokensResultDiv.classList.remove('hidden');
+                } else {
+                    tokensResultDiv.classList.add('hidden');
+                }
+
+                // Show offsets if requested
+                const offsetsResultDiv = document.getElementById('offsetsResult');
+                if (showOffsets && result.offsets) {
+                    document.getElementById('offsetsList').textContent =
+                        result.offsets.map((o, i) => `${i}: [${o[0]}, ${o[1]})`).join('\n');
+                    offsetsResultDiv.classList.remove('hidden');
+                } else {
+                    offsetsResultDiv.classList.add('hidden');
+                }
+
+                // Update decode input with the IDs for easy testing
+                document.getElementById('decodeInput').value = result.ids.join(', ');
+            } catch (e) {
+                alert('Encoding error: ' + e.message);
+            }
+        }
+
+        function decode() {
+            const input = document.getElementById('decodeInput').value.trim();
+            const skipSpecialTokens = document.getElementById('skipSpecialTokens').checked;
+
+            if (!input) {
+                alert('Please enter token IDs');
+                return;
+            }
+
+            try {
+                // Parse IDs from comma or space separated string
+                const ids = input.split(/[,\s]+/)
+                    .map(s => s.trim())
+                    .filter(s => s.length > 0)
+                    .map(s => {
+                        const n = parseInt(s, 10);
+                        if (isNaN(n)) throw new Error(`Invalid token ID: ${s}`);
+                        return n;
+                    });
+
+                const decoded = tokenizer.decode(new Uint32Array(ids), skipSpecialTokens);
+                document.getElementById('decodedText').textContent = decoded;
+                document.getElementById('decodeResult').classList.remove('hidden');
+            } catch (e) {
+                alert('Decoding error: ' + e.message);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('loadFromUrl').addEventListener('click', loadFromUrl);
+        document.getElementById('tokenizerFile').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadFromFile(e.target.files[0]);
+            }
+        });
+        document.getElementById('encodeBtn').addEventListener('click', encode);
+        document.getElementById('decodeBtn').addEventListener('click', decode);
+
+        // Allow Enter key in URL input
+        document.getElementById('tokenizerUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadFromUrl();
+        });
+
+        // Initialize
+        initWasm();
+    </script>
+</body>
+</html>

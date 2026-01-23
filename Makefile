@@ -38,3 +38,9 @@ clean:
 
 bazel-sync:
 	CARGO_BAZEL_REPIN=1 bazel sync --only=crate_index
+
+build-wasm:
+	cd crates/tokenizers-wasm && wasm-pack build --target web --out-dir ../../examples/web/pkg
+
+serve-web: build-wasm
+	cd examples/web && python3 -m http.server 8080
