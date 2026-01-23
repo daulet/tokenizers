@@ -162,6 +162,7 @@
             <input type="file" id="tokenizerFile" accept=".json">
         </div>
         <div id="loadStatus"></div>
+        <div id="loadHelp" class="status info hidden"></div>
         <div id="tokenizerInfo" class="hidden">
             <strong>Vocabulary size:</strong> <span id="vocabSize"></span>
         </div>
@@ -233,6 +234,17 @@
             el.classList.remove('hidden');
         }
 
+        function showHelp(message) {
+            const el = document.getElementById('loadHelp');
+            if (message) {
+                el.innerHTML = message;
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+                el.textContent = '';
+            }
+        }
+
         function enableControls(enabled) {
             document.getElementById('encodeBtn').disabled = !enabled;
             document.getElementById('decodeBtn').disabled = !enabled;
@@ -246,6 +258,7 @@
             }
 
             showStatus('loadStatus', 'Loading tokenizer...', 'info');
+            showHelp('');
 
             try {
                 const response = await fetch(url);
@@ -260,6 +273,14 @@
                 showStatus('loadStatus', 'Tokenizer loaded successfully!', 'success');
                 enableControls(true);
             } catch (e) {
+                const isCorsError = e instanceof TypeError;
+                if (isCorsError) {
+                    showHelp(
+                        `CORS blocked this request. <a href="${url}" target="_blank" rel="noopener">Download tokenizer.json</a> and load it from file.`
+                    );
+                } else {
+                    showHelp('');
+                }
                 showStatus('loadStatus', 'Failed to load tokenizer: ' + e.message, 'error');
                 enableControls(false);
             }
@@ -267,6 +288,7 @@
 
         async function loadFromFile(file) {
             showStatus('loadStatus', 'Loading tokenizer...', 'info');
+            showHelp('');
 
             try {
                 const text = await file.text();
@@ -277,6 +299,7 @@
                 showStatus('loadStatus', `Tokenizer loaded from ${file.name}`, 'success');
                 enableControls(true);
             } catch (e) {
+                showHelp('');
                 showStatus('loadStatus', 'Failed to load tokenizer: ' + e.message, 'error');
                 enableControls(false);
             }
