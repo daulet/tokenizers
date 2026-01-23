@@ -154,12 +154,12 @@
                     placeholder="https://huggingface.co/bert-base-uncased/resolve/main/tokenizer.json"
                     value="https://huggingface.co/bert-base-uncased/resolve/main/tokenizer.json">
             </div>
-            <button id="loadFromUrl">Load from URL</button>
+            <button id="loadFromUrl" disabled>Load from URL</button>
         </div>
         <p style="text-align: center; color: #666; margin: 10px 0;">- or -</p>
         <div>
             <label for="tokenizerFile">Load from file</label>
-            <input type="file" id="tokenizerFile" accept=".json">
+            <input type="file" id="tokenizerFile" accept=".json" disabled>
         </div>
         <div id="loadStatus"></div>
         <div id="loadHelp" class="status info hidden"></div>
@@ -219,10 +219,12 @@
             try {
                 await init();
                 loading.style.display = 'none';
+                enableLoadControls(true);
                 console.log('WASM module loaded');
             } catch (e) {
                 loading.textContent = 'Failed to load WASM module: ' + e.message;
                 loading.style.color = 'red';
+                enableLoadControls(false);
                 console.error('Failed to load WASM:', e);
             }
         }
@@ -248,6 +250,11 @@
         function enableControls(enabled) {
             document.getElementById('encodeBtn').disabled = !enabled;
             document.getElementById('decodeBtn').disabled = !enabled;
+        }
+
+        function enableLoadControls(enabled) {
+            document.getElementById('loadFromUrl').disabled = !enabled;
+            document.getElementById('tokenizerFile').disabled = !enabled;
         }
 
         async function loadFromUrl() {
