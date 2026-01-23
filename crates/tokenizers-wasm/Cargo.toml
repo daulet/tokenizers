@@ -1,0 +1,26 @@
+[package]
+name = "tokenizers-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WebAssembly bindings for the tokenizers library"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+tokenizers = { version = "0.22.0", default-features = false, features = ["unstable_wasm"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = "0.1"
+getrandom = { version = "0.2", features = ["js"] }
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["console"]
+
+[profile.release]
+opt-level = "s"
+lto = true
