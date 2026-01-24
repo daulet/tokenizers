@@ -1,7 +1,5 @@
-load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
 load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@rules_go//go:def.bzl", "go_library", "go_test")
-load("@rules_rust//rust:defs.bzl", "rust_static_library")
 
 # gazelle:exclude release
 # gazelle:prefix github.com/daulet/tokenizers
@@ -17,20 +15,6 @@ gazelle(
         "-prune",
     ],
     command = "update-repos",
-)
-
-rust_static_library(
-    name = "tokenizers_rs",
-    srcs = glob([
-        "src/**/*.rs",
-    ]),
-    version = "1.20.2",
-    aliases = aliases(),
-    proc_macro_deps = all_crate_deps(
-        proc_macro = True,
-    ),
-    visibility = ["//visibility:public"],
-    deps = all_crate_deps(),
 )
 
 go_test(
@@ -52,7 +36,7 @@ go_library(
         "tokenizers.h",
     ],
     cdeps = [
-        ":tokenizers_rs",
+        "//crates/tokenizers:tokenizers_rs",
     ],
     cgo = True,
     importpath = "github.com/daulet/tokenizers",

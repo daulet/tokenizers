@@ -1,0 +1,8 @@
+# WASM builds are handled by wasm-pack via `make build-wasm`
+#
+# Bazel WASM support is not included because:
+# 1. cc_common.create_cc_toolchain_config_info is restricted in Bazel 9 bzlmod
+# 2. The tokenizers crate requires different features for WASM (unstable_wasm)
+# 3. Native dependencies (onig_sys, esaxx-rs) require CC toolchain workarounds
+#
+# Use `make build-wasm` to build the WASM module with wasm-pack
