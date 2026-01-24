@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HuggingFace Tokenizer Playground</title>
+    <title>HuggingFace Tokenizer online</title>
     <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js"></script>
     <style>
         * {
@@ -53,7 +53,7 @@
             font-weight: 500;
             color: #c9d1d9;
         }
-        input[type="text"], input[type="url"], textarea, select {
+        input[type="text"], input[type="url"], input[type="password"], textarea, select {
             width: 100%;
             padding: 10px;
             border: 1px solid #30363d;
@@ -349,8 +349,8 @@
         </div>
     </div>
 
-    <h1>HuggingFace Tokenizer Playground</h1>
-    <p class="subtitle">Load tokenizers and chat templates from HuggingFace, visualize token encoding/decoding</p>
+    <h1>Online Tokenizer</h1>
+    <p class="subtitle">Load tokenizer config and chat templates from HuggingFace, visualize token encoding/decoding. Built with <a href="https://github.com/daulet/tokenizers">daulet/tokenizers</a> library for Go and Wasm.</p>
 
     <!-- Model Selection -->
     <div class="section">
@@ -371,6 +371,15 @@
                 <input type="text" id="modelId" placeholder="e.g., meta-llama/Llama-3.1-8B-Instruct" value="openai/gpt-oss-120b">
             </div>
             <button id="loadModelBtn">Load Model</button>
+        </div>
+
+        <div id="tokenSection" class="hidden" style="margin-top: 10px;">
+            <label for="hfToken">HuggingFace Token (for gated models)</label>
+            <input type="password" id="hfToken" placeholder="hf_xxxxxxxxxxxx">
+            <p style="font-size: 12px; color: #8b949e; margin-top: 4px;">
+                Get your token at <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a>.
+                Token is only used in your browser and never sent to any server except HuggingFace.
+            </p>
         </div>
 
         <div id="loadStatus"></div>
@@ -570,10 +579,29 @@
             showStatus('Loading tokenizer...', 'info');
 
             const baseUrl = `https://huggingface.co/${modelId}/resolve/main`;
+            const hfToken = document.getElementById('hfToken').value.trim();
+
+            // Prepare fetch options with optional auth header
+            const fetchOptions = {};
+            if (hfToken) {
+                fetchOptions.headers = { 'Authorization': `Bearer ${hfToken}` };
+            }
 
             try {
                 // Load tokenizer.json
-                const tokenizerResponse = await fetch(`${baseUrl}/tokenizer.json`);
+                const tokenizerResponse = await fetch(`${baseUrl}/tokenizer.json`, fetchOptions);
+
+                if (tokenizerResponse.status === 401) {
+                    // Gated model - show token input
+                    document.getElementById('tokenSection').classList.remove('hidden');
+                    throw new Error('This model is gated. Please enter your HuggingFace token to access it.');
+                }
+
+                if (tokenizerResponse.status === 403) {
+                    document.getElementById('tokenSection').classList.remove('hidden');
+                    throw new Error('Access denied. You may need to accept the model license at huggingface.co/' + modelId);
+                }
+
                 if (!tokenizerResponse.ok) {
                     throw new Error(`Failed to load tokenizer.json: ${tokenizerResponse.status}`);
                 }
@@ -584,7 +612,7 @@
 
                 // Try to load tokenizer_config.json for chat template
                 try {
-                    const configResponse = await fetch(`${baseUrl}/tokenizer_config.json`);
+                    const configResponse = await fetch(`${baseUrl}/tokenizer_config.json`, fetchOptions);
                     if (configResponse.ok) {
                         tokenizerConfig = await configResponse.json();
                         chatTemplate = tokenizerConfig.chat_template || null;
