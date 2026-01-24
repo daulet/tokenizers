@@ -40,7 +40,8 @@ bazel-sync:
 	CARGO_BAZEL_REPIN=1 bazel sync --only=crate_index
 
 build-wasm:
-	cd crates/tokenizers-wasm && wasm-pack build --target web --out-dir ../../examples/web/pkg
+	@command -v wasm-bindgen >/dev/null 2>&1 || PATH="$$HOME/.cargo/bin:$$PATH" cargo install wasm-bindgen-cli --version 0.2.100
+	cd crates/tokenizers-wasm && PATH="$$HOME/.cargo/bin:$$PATH" RUSTFLAGS='--cfg=getrandom_backend="wasm_js"' wasm-pack build --target web --out-dir ../../examples/web/pkg --mode no-install
 
 serve-web: build-wasm
 	cd examples/web && python3 -m http.server 8080
