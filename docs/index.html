@@ -357,19 +357,18 @@
         <h2>1. Select Model</h2>
 
         <div class="model-presets">
+            <button class="preset-btn" data-model="zai-org/GLM-4.7">GLM-4.7</button>
+            <button class="preset-btn" data-model="openai/gpt-oss-120b">GPT-OSS-120B</button>
+            <button class="preset-btn" data-model="deepseek-ai/DeepSeek-V3.2">DeepSeek V3.2</button>
+            <button class="preset-btn" data-model="Qwen/Qwen3-Coder-30B-A3B-Instruct">Qwen3 Coder</button>
+            <button class="preset-btn" data-model="MiniMaxAI/MiniMax-M2.1">MiniMax M2.1</button>
             <button class="preset-btn" data-model="meta-llama/Llama-3.1-8B-Instruct">Llama 3.1</button>
-            <button class="preset-btn" data-model="mistralai/Mistral-7B-Instruct-v0.3">Mistral 7B</button>
-            <button class="preset-btn" data-model="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5</button>
-            <button class="preset-btn" data-model="google/gemma-2-9b-it">Gemma 2</button>
-            <button class="preset-btn" data-model="microsoft/Phi-3-mini-4k-instruct">Phi-3</button>
-            <button class="preset-btn" data-model="openai-community/gpt2">GPT-2</button>
-            <button class="preset-btn" data-model="google-bert/bert-base-uncased">BERT</button>
         </div>
 
         <div class="flex-row">
             <div style="flex: 3;">
                 <label for="modelId">HuggingFace Model ID</label>
-                <input type="text" id="modelId" placeholder="e.g., meta-llama/Llama-3.1-8B-Instruct" value="meta-llama/Llama-3.1-8B-Instruct">
+                <input type="text" id="modelId" placeholder="e.g., meta-llama/Llama-3.1-8B-Instruct" value="openai/gpt-oss-120b">
             </div>
             <button id="loadModelBtn">Load Model</button>
         </div>
