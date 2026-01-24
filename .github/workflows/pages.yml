@@ -36,13 +36,15 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install wasm-pack
-        run: command -v wasm-pack || cargo install wasm-pack
+      - name: Install wasm-pack and wasm-bindgen
+        run: |
+          command -v wasm-pack || cargo install wasm-pack
+          command -v wasm-bindgen || cargo install wasm-bindgen-cli --version 0.2.100
 
       - name: Build WASM
         run: |
           cd crates/tokenizers-wasm
-          RUSTFLAGS='--cfg=getrandom_backend="wasm_js"' wasm-pack build --target web --out-dir ../../docs/pkg --mode no-install
+          RUSTFLAGS='--cfg=getrandom_backend="wasm_js"' wasm-pack build --target web --out-dir ../../docs/pkg
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
