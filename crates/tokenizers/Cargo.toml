@@ -1,0 +1,25 @@
+[package]
+name = "tokenizers-ffi"
+version = "1.23.0"
+edition = "2021"
+description = "FFI bindings for HuggingFace tokenizers with tiktoken support"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+libc = "0.2"
+tokenizers = { version = "0.22" }
+tiktoken-rs = { git = "https://github.com/steved/tiktoken-rs", branch = "steved/bump-fancy-regex" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+rustc-hash = "1.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
+
+[[bench]]
+name = "decode_benchmark"
+harness = false

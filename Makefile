@@ -1,15 +1,15 @@
 build:
-	@cargo build --release
-	@cp target/release/libtokenizers.a .
+	@cargo build --release -p tokenizers-ffi
+	@cp target/release/libtokenizers_ffi.a ./libtokenizers.a
 	@go build .
 
-build-example:
-	@docker build -f ./example/Dockerfile . -t tokenizers-example
+build-example-go:
+	@docker build -f ./examples/go/Dockerfile . -t tokenizers-example
 
 release-darwin-%: test
-	cargo build --release --target $*-apple-darwin
+	cargo build --release -p tokenizers-ffi --target $*-apple-darwin
 	mkdir -p artifacts/darwin-$*
-	cp target/$*-apple-darwin/release/libtokenizers.a artifacts/darwin-$*/libtokenizers.a
+	cp target/$*-apple-darwin/release/libtokenizers_ffi.a artifacts/darwin-$*/libtokenizers.a
 	cd artifacts/darwin-$* && \
 		tar -czf libtokenizers.darwin-$*.tar.gz libtokenizers.a
 	mkdir -p artifacts/all
@@ -34,7 +34,7 @@ test: build
 	@go test -ldflags="-extldflags '-L./'" -v ./... -count=1
 
 clean:
-	rm -rf libtokenizers.a target
+	rm -rf libtokenizers.a target artifacts
 
 bazel-sync:
 	CARGO_BAZEL_REPIN=1 bazel sync --only=crate_index

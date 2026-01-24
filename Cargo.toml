@@ -1,24 +1,17 @@
-[package]
-name = "tokenizers"
-version = "1.23.0"
+[workspace]
+resolver = "2"
+members = [
+    "crates/tokenizers",
+    "crates/tokenizers-wasm",
+]
+
+[workspace.package]
 edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/daulet/tokenizers"
 
-[lib]
-crate-type = ["staticlib"]
-
-[dependencies]
-libc = "0.2.162"
-tokenizers = {version = "0.22.0" }
-tiktoken-rs = { git = "https://github.com/steved/tiktoken-rs", branch = "steved/bump-fancy-regex" }
+[workspace.dependencies]
+tokenizers = "0.22"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.140"
-base64 = "0.22"
-rustc-hash = "1.1.0"
-
-[dev-dependencies]
-criterion = { version = "0.5.1", features = ["html_reports"] }
-rand = "0.8.5"
-
-[[bench]]
-name = "decode_benchmark"
-harness = false
+serde_json = "1.0"
+wasm-bindgen = "0.2"

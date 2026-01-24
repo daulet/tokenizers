@@ -22,9 +22,9 @@ gazelle(
 rust_static_library(
     name = "tokenizers_rs",
     srcs = glob([
-        "src/**/*.rs",
+        "crates/tokenizers/src/**/*.rs",
     ]),
-    version = "1.20.2",
+    version = "1.23.0",
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(
         proc_macro = True,
