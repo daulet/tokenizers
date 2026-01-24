@@ -1,29 +1,8 @@
-load("@crate_index_wasm//:defs.bzl", "aliases", "all_crate_deps")
-load("@rules_rust//rust:defs.bzl", "rust_library")
-
-# WASM library target
-# Build with: bazel build --platforms=@rules_rust//rust/platform:wasm //crates/tokenizers-wasm:tokenizers_wasm
+# WASM builds are handled by wasm-pack via `make build-wasm`
 #
-# Note: This target must be built with explicit --platforms flag because:
-# 1. WASM requires different dependency features (tokenizers with unstable_wasm)
-# 2. getrandom requires --cfg=getrandom_backend="wasm_js" for WASM
-# 3. Native-only crates (esaxx-rs, onig_sys) have build scripts disabled
-rust_library(
-    name = "tokenizers_wasm",
-    srcs = glob(["src/**/*.rs"]),
-    aliases = aliases(),
-    crate_name = "tokenizers_wasm",
-    edition = "2021",
-    proc_macro_deps = all_crate_deps(
-        proc_macro = True,
-    ),
-    rustc_flags = [
-        "--cfg=getrandom_backend=\"wasm_js\"",
-    ],
-    # Mark as incompatible with default (non-WASM) builds
-    target_compatible_with = [
-        "@platforms//cpu:wasm32",
-    ],
-    visibility = ["//visibility:public"],
-    deps = all_crate_deps(),
-)
+# Bazel WASM support is not included because:
+# 1. cc_common.create_cc_toolchain_config_info is restricted in Bazel 9 bzlmod
+# 2. The tokenizers crate requires different features for WASM (unstable_wasm)
+# 3. Native dependencies (onig_sys, esaxx-rs) require CC toolchain workarounds
+#
+# Use `make build-wasm` to build the WASM module with wasm-pack

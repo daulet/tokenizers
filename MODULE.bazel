@@ -15,10 +15,7 @@ use_repo(go_deps, "com_github_stretchr_testify")
 go_deps.from_file(go_mod = "//:go.mod")
 
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2021",
-    extra_target_triples = ["wasm32-unknown-unknown"],
-)
+rust.toolchain(edition = "2021")
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 crate.from_cargo(
@@ -29,39 +26,4 @@ crate.from_cargo(
         "//crates/tokenizers:Cargo.toml",
     ],
 )
-crate.from_cargo(
-    name = "crate_index_wasm",
-    cargo_lockfile = "//:Cargo.lock",
-    manifests = [
-        "//:Cargo.toml",
-        "//crates/tokenizers-wasm:Cargo.toml",
-    ],
-)
-
-# Disable native build scripts for WASM-incompatible crates
-crate.annotation(
-    crate = "esaxx-rs",
-    repositories = ["crate_index_wasm"],
-    gen_build_script = "off",
-)
-crate.annotation(
-    crate = "onig_sys",
-    repositories = ["crate_index_wasm"],
-    gen_build_script = "off",
-)
-crate.annotation(
-    crate = "onig",
-    repositories = ["crate_index_wasm"],
-    gen_build_script = "off",
-)
-
-# Configure getrandom for WASM
-crate.annotation(
-    crate = "getrandom",
-    repositories = ["crate_index_wasm"],
-    rustc_flags = ["--cfg=getrandom_backend=\"wasm_js\""],
-)
-use_repo(crate, "crate_index", "crate_index_wasm")
-
-# Register stub CC toolchain for WASM targets
-register_toolchains("//bazel:wasm_cc_toolchain_def")
+use_repo(crate, "crate_index")
