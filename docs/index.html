@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HuggingFace Tokenizer Playground</title>
+    <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        h1 {
+            color: #58a6ff;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #8b949e;
+            margin-bottom: 20px;
+        }
+        .section {
+            background: #161b22;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #30363d;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #58a6ff;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section h2 .badge {
+            font-size: 0.75em;
+            background: #238636;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: normal;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #c9d1d9;
+        }
+        input[type="text"], input[type="url"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            background: #0d1117;
+            color: #c9d1d9;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+        textarea {
+            min-height: 80px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            resize: vertical;
+        }
+        button {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #2ea043;
+        }
+        button:disabled {
+            background: #21262d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+        button.secondary {
+            background: #21262d;
+            border: 1px solid #30363d;
+        }
+        button.secondary:hover {
+            background: #30363d;
+        }
+        button.danger {
+            background: #da3633;
+        }
+        button.danger:hover {
+            background: #f85149;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .status.success {
+            background: rgba(35, 134, 54, 0.15);
+            border: 1px solid #238636;
+            color: #3fb950;
+        }
+        .status.error {
+            background: rgba(248, 81, 73, 0.15);
+            border: 1px solid #f85149;
+            color: #f85149;
+        }
+        .status.info {
+            background: rgba(88, 166, 255, 0.15);
+            border: 1px solid #58a6ff;
+            color: #58a6ff;
+        }
+        .result {
+            background: #0d1117;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #30363d;
+        }
+        .token-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 10px;
+        }
+        .token {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .token:hover {
+            transform: scale(1.05);
+            z-index: 1;
+        }
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        .flex-row > * {
+            flex: 1;
+        }
+        .flex-row button {
+            flex: 0 0 auto;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+        .message-item {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .message-role {
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .message-role.system { color: #f0883e; }
+        .message-role.user { color: #58a6ff; }
+        .message-role.assistant { color: #a371f7; }
+        .message-content {
+            width: 100%;
+            min-height: 60px;
+            resize: vertical;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .info-item {
+            background: #0d1117;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+        }
+        .info-label {
+            font-size: 12px;
+            color: #8b949e;
+            margin-bottom: 4px;
+        }
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #58a6ff;
+        }
+        .template-preview {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: #8b949e;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #30363d;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            margin: 0;
+            margin-bottom: -1px;
+        }
+        .tab:hover {
+            color: #c9d1d9;
+        }
+        .tab.active {
+            color: #58a6ff;
+            border-bottom-color: #f78166;
+        }
+        .model-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .preset-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 20px;
+        }
+        .preset-btn:hover {
+            border-color: #58a6ff;
+        }
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(13, 17, 23, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #30363d;
+            border-top-color: #58a6ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .collapsible-header::before {
+            content: '▶';
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .collapsible-header.expanded::before {
+            transform: rotate(90deg);
+        }
+        a {
+            color: #58a6ff;
+        }
+        .token-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #58a6ff;
+        }
+        .stat-label {
+            color: #8b949e;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay">
+        <div style="text-align: center;">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px; color: #8b949e;">Loading WASM module...</p>
+        </div>
+    </div>
+
+    <h1>HuggingFace Tokenizer Playground</h1>
+    <p class="subtitle">Load tokenizers and chat templates from HuggingFace, visualize token encoding/decoding</p>
+
+    <!-- Model Selection -->
+    <div class="section">
+        <h2>1. Select Model</h2>
+
+        <div class="model-presets">
+            <button class="preset-btn" data-model="meta-llama/Llama-3.1-8B-Instruct">Llama 3.1</button>
+            <button class="preset-btn" data-model="mistralai/Mistral-7B-Instruct-v0.3">Mistral 7B</button>
+            <button class="preset-btn" data-model="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5</button>
+            <button class="preset-btn" data-model="google/gemma-2-9b-it">Gemma 2</button>
+            <button class="preset-btn" data-model="microsoft/Phi-3-mini-4k-instruct">Phi-3</button>
+            <button class="preset-btn" data-model="openai-community/gpt2">GPT-2</button>
+            <button class="preset-btn" data-model="google-bert/bert-base-uncased">BERT</button>
+        </div>
+
+        <div class="flex-row">
+            <div style="flex: 3;">
+                <label for="modelId">HuggingFace Model ID</label>
+                <input type="text" id="modelId" placeholder="e.g., meta-llama/Llama-3.1-8B-Instruct" value="meta-llama/Llama-3.1-8B-Instruct">
+            </div>
+            <button id="loadModelBtn">Load Model</button>
+        </div>
+
+        <div id="loadStatus"></div>
+
+        <div id="modelInfo" class="hidden">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Vocabulary Size</div>
+                    <div class="info-value" id="vocabSize">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Has Chat Template</div>
+                    <div class="info-value" id="hasTemplate">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">BOS Token</div>
+                    <div class="info-value" id="bosToken" style="font-size: 14px;">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">EOS Token</div>
+                    <div class="info-value" id="eosToken" style="font-size: 14px;">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Template & Messages -->
+    <div class="section">
+        <h2>2. Chat Messages</h2>
+
+        <div id="messagesContainer">
+            <!-- Messages will be added here -->
+        </div>
+
+        <div style="margin-top: 10px;">
+            <button id="addSystemBtn" class="secondary">+ System</button>
+            <button id="addUserBtn" class="secondary">+ User</button>
+            <button id="addAssistantBtn" class="secondary">+ Assistant</button>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <label>
+                <input type="checkbox" id="addGenerationPrompt" checked>
+                Add generation prompt (for assistant turn)
+            </label>
+        </div>
+    </div>
+
+    <!-- Formatted Prompt -->
+    <div class="section">
+        <h2>3. Formatted Prompt</h2>
+        <button id="applyTemplateBtn" disabled>Apply Chat Template</button>
+        <button id="copyPromptBtn" class="secondary" disabled>Copy to Clipboard</button>
+
+        <div id="formattedPromptContainer" class="hidden" style="margin-top: 15px;">
+            <div class="result" id="formattedPrompt"></div>
+        </div>
+    </div>
+
+    <!-- Tokenization -->
+    <div class="section">
+        <h2>4. Tokenization</h2>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="encode">Encode</button>
+            <button class="tab" data-tab="decode">Decode</button>
+        </div>
+
+        <div id="encodeTab">
+            <label for="encodeInput">Text to encode (or use formatted prompt above)</label>
+            <textarea id="encodeInput" placeholder="Enter text to tokenize..."></textarea>
+            <div style="margin-bottom: 10px;">
+                <label>
+                    <input type="checkbox" id="addSpecialTokens" checked>
+                    Add special tokens
+                </label>
+            </div>
+            <button id="encodeBtn" disabled>Encode</button>
+            <button id="useFormattedBtn" class="secondary" disabled>Use Formatted Prompt</button>
+        </div>
+
+        <div id="decodeTab" class="hidden">
+            <label for="decodeInput">Token IDs (comma or space separated)</label>
+            <textarea id="decodeInput" placeholder="Enter token IDs like: 128000, 128006, 9125"></textarea>
+            <div style="margin-bottom: 10px;">
+                <label>
+                    <input type="checkbox" id="skipSpecialTokens">
+                    Skip special tokens
+                </label>
+            </div>
+            <button id="decodeBtn" disabled>Decode</button>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="section" id="resultsSection" class="hidden">
+        <h2>5. Results</h2>
+
+        <div class="token-stats">
+            <div class="stat-item">
+                <span class="stat-value" id="tokenCount">0</span>
+                <span class="stat-label">tokens</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="charCount">0</span>
+                <span class="stat-label">characters</span>
+            </div>
+        </div>
+
+        <div>
+            <h3 style="font-size: 14px; color: #8b949e; margin-bottom: 10px;">Token IDs</h3>
+            <div class="result" id="idsResult" style="max-height: 150px;"></div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <h3 style="font-size: 14px; color: #8b949e; margin-bottom: 10px;">Tokens (click to see ID)</h3>
+            <div class="token-container" id="tokensContainer"></div>
+        </div>
+
+        <div id="decodedSection" class="hidden" style="margin-top: 15px;">
+            <h3 style="font-size: 14px; color: #8b949e; margin-bottom: 10px;">Decoded Text</h3>
+            <div class="result" id="decodedResult"></div>
+        </div>
+    </div>
+
+    <!-- Chat Template Info -->
+    <div class="section">
+        <div class="collapsible-header" id="templateHeader">
+            <h2 style="margin: 0;">Chat Template (Jinja2)</h2>
+        </div>
+        <div id="templateContent" class="hidden" style="margin-top: 15px;">
+            <div class="template-preview" id="chatTemplatePreview">No chat template loaded</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { WasmTokenizer } from './pkg/tokenizers_wasm.js';
+
+        let tokenizer = null;
+        let tokenizerConfig = null;
+        let chatTemplate = null;
+        let formattedPromptText = '';
+
+        // Color palette for tokens
+        const tokenColors = [
+            '#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51',
+            '#606c38', '#283618', '#dda15e', '#bc6c25', '#003049',
+            '#d62828', '#f77f00', '#fcbf49', '#457b9d', '#1d3557'
+        ];
+
+        function getTokenColor(id) {
+            return tokenColors[id % tokenColors.length];
+        }
+
+        async function initWasm() {
+            try {
+                await init();
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.log('WASM module loaded');
+            } catch (e) {
+                document.getElementById('loadingOverlay').innerHTML = `
+                    <div style="text-align: center; color: #f85149;">
+                        <p>Failed to load WASM module</p>
+                        <p style="font-size: 12px;">${e.message}</p>
+                    </div>
+                `;
+                console.error('Failed to load WASM:', e);
+            }
+        }
+
+        function showStatus(message, type) {
+            const el = document.getElementById('loadStatus');
+            el.className = 'status ' + type;
+            el.textContent = message;
+            el.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            document.getElementById('loadStatus').classList.add('hidden');
+        }
+
+        function enableControls(enabled) {
+            document.getElementById('encodeBtn').disabled = !enabled;
+            document.getElementById('decodeBtn').disabled = !enabled;
+            document.getElementById('applyTemplateBtn').disabled = !enabled || !chatTemplate;
+            document.getElementById('useFormattedBtn').disabled = !enabled;
+            document.getElementById('copyPromptBtn').disabled = !formattedPromptText;
+        }
+
+        async function loadModel() {
+            const modelId = document.getElementById('modelId').value.trim();
+            if (!modelId) {
+                showStatus('Please enter a model ID', 'error');
+                return;
+            }
+
+            showStatus('Loading tokenizer...', 'info');
+
+            const baseUrl = `https://huggingface.co/${modelId}/resolve/main`;
+
+            try {
+                // Load tokenizer.json
+                const tokenizerResponse = await fetch(`${baseUrl}/tokenizer.json`);
+                if (!tokenizerResponse.ok) {
+                    throw new Error(`Failed to load tokenizer.json: ${tokenizerResponse.status}`);
+                }
+                const tokenizerJson = await tokenizerResponse.text();
+
+                // Create tokenizer
+                tokenizer = WasmTokenizer.fromString(tokenizerJson);
+
+                // Try to load tokenizer_config.json for chat template
+                try {
+                    const configResponse = await fetch(`${baseUrl}/tokenizer_config.json`);
+                    if (configResponse.ok) {
+                        tokenizerConfig = await configResponse.json();
+                        chatTemplate = tokenizerConfig.chat_template || null;
+                    }
+                } catch (e) {
+                    console.log('No tokenizer_config.json found');
+                    tokenizerConfig = null;
+                    chatTemplate = null;
+                }
+
+                // Update UI
+                document.getElementById('vocabSize').textContent = tokenizer.vocabSize().toLocaleString();
+                document.getElementById('hasTemplate').textContent = chatTemplate ? 'Yes' : 'No';
+                document.getElementById('bosToken').textContent = tokenizerConfig?.bos_token || '-';
+                document.getElementById('eosToken').textContent = tokenizerConfig?.eos_token || '-';
+                document.getElementById('modelInfo').classList.remove('hidden');
+
+                // Show chat template
+                if (chatTemplate) {
+                    document.getElementById('chatTemplatePreview').textContent =
+                        typeof chatTemplate === 'string' ? chatTemplate : JSON.stringify(chatTemplate, null, 2);
+                } else {
+                    document.getElementById('chatTemplatePreview').textContent = 'No chat template available for this model';
+                }
+
+                showStatus(`Loaded ${modelId}`, 'success');
+                enableControls(true);
+
+                // Initialize default messages if empty
+                if (document.getElementById('messagesContainer').children.length === 0) {
+                    addMessage('system', 'You are a helpful assistant.');
+                    addMessage('user', 'Hello, how are you?');
+                }
+
+            } catch (e) {
+                showStatus(`Error: ${e.message}`, 'error');
+                enableControls(false);
+                console.error(e);
+            }
+        }
+
+        function addMessage(role, content = '') {
+            const container = document.getElementById('messagesContainer');
+            const id = Date.now();
+
+            const div = document.createElement('div');
+            div.className = 'message-item';
+            div.dataset.id = id;
+            div.innerHTML = `
+                <div class="message-header">
+                    <span class="message-role ${role}">${role.toUpperCase()}</span>
+                    <button class="secondary" onclick="removeMessage(${id})" style="padding: 4px 8px; font-size: 12px;">Remove</button>
+                </div>
+                <textarea class="message-content" data-role="${role}" placeholder="Enter ${role} message...">${content}</textarea>
+            `;
+            container.appendChild(div);
+        }
+
+        window.removeMessage = function(id) {
+            const el = document.querySelector(`[data-id="${id}"]`);
+            if (el) el.remove();
+        };
+
+        function getMessages() {
+            const messages = [];
+            document.querySelectorAll('.message-item').forEach(item => {
+                const textarea = item.querySelector('textarea');
+                const role = textarea.dataset.role;
+                const content = textarea.value;
+                if (content.trim()) {
+                    messages.push({ role, content });
+                }
+            });
+            return messages;
+        }
+
+        function applyTemplate() {
+            if (!chatTemplate) {
+                showStatus('No chat template available', 'error');
+                return;
+            }
+
+            const messages = getMessages();
+            if (messages.length === 0) {
+                showStatus('Please add at least one message', 'error');
+                return;
+            }
+
+            const addGenerationPrompt = document.getElementById('addGenerationPrompt').checked;
+
+            try {
+                // Convert Jinja2 template to Nunjucks-compatible format
+                let template = chatTemplate;
+
+                // Handle common Jinja2 patterns
+                template = template.replace(/\{%- /g, '{% ');
+                template = template.replace(/ -%\}/g, ' %}');
+                template = template.replace(/\{\{- /g, '{{ ');
+                template = template.replace(/ -\}\}/g, ' }}');
+
+                // Configure Nunjucks
+                const env = new nunjucks.Environment(null, { autoescape: false });
+
+                // Add raise_exception function
+                env.addGlobal('raise_exception', function(msg) {
+                    throw new Error(msg);
+                });
+
+                // Render template
+                const context = {
+                    messages: messages,
+                    add_generation_prompt: addGenerationPrompt,
+                    bos_token: tokenizerConfig?.bos_token || '',
+                    eos_token: tokenizerConfig?.eos_token || '',
+                    unk_token: tokenizerConfig?.unk_token || '',
+                    pad_token: tokenizerConfig?.pad_token || '',
+                };
+
+                formattedPromptText = env.renderString(template, context);
+
+                document.getElementById('formattedPrompt').textContent = formattedPromptText;
+                document.getElementById('formattedPromptContainer').classList.remove('hidden');
+                document.getElementById('copyPromptBtn').disabled = false;
+
+                // Also put it in the encode input
+                document.getElementById('encodeInput').value = formattedPromptText;
+
+            } catch (e) {
+                showStatus(`Template error: ${e.message}`, 'error');
+                console.error('Template error:', e);
+            }
+        }
+
+        function encode() {
+            const text = document.getElementById('encodeInput').value;
+            const addSpecialTokens = document.getElementById('addSpecialTokens').checked;
+
+            if (!text) {
+                showStatus('Please enter text to encode', 'error');
+                return;
+            }
+
+            try {
+                const result = tokenizer.encodeWithDetails(
+                    text,
+                    addSpecialTokens,
+                    true,   // return_tokens
+                    false,  // return_type_ids
+                    false,  // return_attention_mask
+                    false,  // return_special_tokens_mask
+                    true    // return_offsets
+                );
+
+                // Update stats
+                document.getElementById('tokenCount').textContent = result.ids.length;
+                document.getElementById('charCount').textContent = text.length;
+
+                // Show IDs
+                document.getElementById('idsResult').textContent = '[' + result.ids.join(', ') + ']';
+
+                // Show tokens with colors
+                const container = document.getElementById('tokensContainer');
+                container.innerHTML = '';
+                result.tokens.forEach((token, i) => {
+                    const span = document.createElement('span');
+                    span.className = 'token';
+                    span.style.backgroundColor = getTokenColor(result.ids[i]);
+                    span.style.color = '#fff';
+                    span.textContent = token.replace(/\n/g, '\\n').replace(/ /g, '\u00B7');
+                    span.title = `ID: ${result.ids[i]}`;
+                    span.onclick = () => alert(`Token: "${token}"\nID: ${result.ids[i]}`);
+                    container.appendChild(span);
+                });
+
+                document.getElementById('resultsSection').classList.remove('hidden');
+                document.getElementById('decodedSection').classList.add('hidden');
+
+                // Update decode input
+                document.getElementById('decodeInput').value = result.ids.join(', ');
+
+            } catch (e) {
+                showStatus(`Encoding error: ${e.message}`, 'error');
+                console.error(e);
+            }
+        }
+
+        function decode() {
+            const input = document.getElementById('decodeInput').value.trim();
+            const skipSpecialTokens = document.getElementById('skipSpecialTokens').checked;
+
+            if (!input) {
+                showStatus('Please enter token IDs', 'error');
+                return;
+            }
+
+            try {
+                const ids = input.split(/[,\s]+/)
+                    .map(s => s.trim())
+                    .filter(s => s.length > 0)
+                    .map(s => {
+                        const n = parseInt(s, 10);
+                        if (isNaN(n)) throw new Error(`Invalid token ID: ${s}`);
+                        return n;
+                    });
+
+                const decoded = tokenizer.decode(new Uint32Array(ids), skipSpecialTokens);
+
+                document.getElementById('tokenCount').textContent = ids.length;
+                document.getElementById('charCount').textContent = decoded.length;
+                document.getElementById('idsResult').textContent = '[' + ids.join(', ') + ']';
+                document.getElementById('tokensContainer').innerHTML = '';
+
+                document.getElementById('decodedResult').textContent = decoded;
+                document.getElementById('decodedSection').classList.remove('hidden');
+                document.getElementById('resultsSection').classList.remove('hidden');
+
+            } catch (e) {
+                showStatus(`Decoding error: ${e.message}`, 'error');
+                console.error(e);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('loadModelBtn').addEventListener('click', loadModel);
+        document.getElementById('modelId').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadModel();
+        });
+
+        // Preset buttons
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('modelId').value = btn.dataset.model;
+                loadModel();
+            });
+        });
+
+        // Message buttons
+        document.getElementById('addSystemBtn').addEventListener('click', () => addMessage('system'));
+        document.getElementById('addUserBtn').addEventListener('click', () => addMessage('user'));
+        document.getElementById('addAssistantBtn').addEventListener('click', () => addMessage('assistant'));
+
+        // Template and encode/decode
+        document.getElementById('applyTemplateBtn').addEventListener('click', applyTemplate);
+        document.getElementById('copyPromptBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(formattedPromptText);
+            showStatus('Copied to clipboard!', 'success');
+            setTimeout(hideStatus, 2000);
+        });
+        document.getElementById('encodeBtn').addEventListener('click', encode);
+        document.getElementById('decodeBtn').addEventListener('click', decode);
+        document.getElementById('useFormattedBtn').addEventListener('click', () => {
+            if (formattedPromptText) {
+                document.getElementById('encodeInput').value = formattedPromptText;
+            }
+        });
+
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                const tabName = tab.dataset.tab;
+                document.getElementById('encodeTab').classList.toggle('hidden', tabName !== 'encode');
+                document.getElementById('decodeTab').classList.toggle('hidden', tabName !== 'decode');
+            });
+        });
+
+        // Collapsible template section
+        document.getElementById('templateHeader').addEventListener('click', () => {
+            const header = document.getElementById('templateHeader');
+            const content = document.getElementById('templateContent');
+            header.classList.toggle('expanded');
+            content.classList.toggle('hidden');
+        });
+
+        // Initialize
+        initWasm();
+    </script>
+</body>
+</html>
