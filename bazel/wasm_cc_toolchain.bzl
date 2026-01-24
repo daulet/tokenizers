@@ -18,5 +18,4 @@ def _wasm_cc_toolchain_config_impl(ctx):
 wasm_cc_toolchain_config = rule(
     implementation = _wasm_cc_toolchain_config_impl,
     attrs = {},
-    provides = [CcToolchainConfigInfo],
 )

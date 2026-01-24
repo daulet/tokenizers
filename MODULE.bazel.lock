@@ -245,8 +245,8 @@
         "usagesDigest": "tZeNhg8kqtCDw3LHzHOb3cY1RysTuUF49apt4wl0klM=",
         "recordedFileInputs": {
           "@@//Cargo.lock": "c9238c11944de07ad268e9034250f66fc567fcd46dc466a46f9d85fb3d1e844b",
-          "@@//Cargo.toml": "57af29b5cd14fe7d83acd9b4100de18e7087da88146968bcca47d603a2a71eed",
-          "@@//crates/tokenizers-wasm/Cargo.toml": "71f3b507dba6f4449c4dc60879bdbb6ed7a9e4075d636232a9cbbfa30f32345f",
+          "@@//Cargo.toml": "956edd88d56e4b115aac9808e69d6ca194c1dead1e5dcf88605364f4d1f3b706",
+          "@@//crates/tokenizers-wasm/Cargo.toml": "b4988a5599d2289415098f10be5378369b697aa8a8cb771e2eb59abb7ef26942",
           "@@//crates/tokenizers/Cargo.toml": "055c098bfb3ff7c5ede8f372af1c42f5879fe501ccb437399b46091d1e8760b1"
         },
         "recordedDirentsInputs": {},
