@@ -981,7 +981,7 @@ dependencies = [
 [[package]]
 name = "tiktoken-rs"
 version = "0.8.0"
-source = "git+https://github.com/steved/tiktoken-rs?branch=steved%2Fbump-fancy-regex#572bd9ef147695d40fa04d535f2b37c5d5b5c1ef"
+source = "git+https://github.com/zurawiki/tiktoken-rs#572bd9ef147695d40fa04d535f2b37c5d5b5c1ef"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
