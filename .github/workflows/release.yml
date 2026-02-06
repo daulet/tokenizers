@@ -10,17 +10,15 @@ env:
 jobs:
   build-macos:
     name: build-macos-${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-13
-            target: x86_64-apple-darwin
+          - target: x86_64-apple-darwin
             archive_name: libtokenizers.darwin-x86_64.tar.gz
             alias_name: ""
-          - os: macos-14
-            target: aarch64-apple-darwin
+          - target: aarch64-apple-darwin
             archive_name: libtokenizers.darwin-aarch64.tar.gz
             alias_name: libtokenizers.darwin-arm64.tar.gz
 
