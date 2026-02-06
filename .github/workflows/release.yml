@@ -3,6 +3,12 @@ name: Release Artifacts
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Existing release tag to patch (for example, v1.2.3)
+        required: true
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -117,5 +123,5 @@ jobs:
       - name: Attach artifacts to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.event.release.tag_name }}
           files: artifacts/**/*
