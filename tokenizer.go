@@ -345,13 +345,6 @@ func (t *Tokenizer) Close() error {
 	return nil
 }
 
-func (t *Tokenizer) ensureReady() error {
-	if t == nil || t.tokenizer == nil {
-		return ErrTokenizerClosed
-	}
-	return nil
-}
-
 type Offset [2]uint
 
 type Encoding struct {
@@ -397,8 +390,8 @@ func offsetVecToSlice(arrPtr *C.size_t, tokenLength int) []Offset {
 }
 
 func (t *Tokenizer) EncodeErr(str string, addSpecialTokens bool) ([]uint32, []string, error) {
-	if err := t.ensureReady(); err != nil {
-		return nil, nil, err
+	if t == nil || t.tokenizer == nil {
+		return nil, nil, ErrTokenizerClosed
 	}
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
@@ -432,7 +425,32 @@ func (t *Tokenizer) EncodeErr(str string, addSpecialTokens bool) ([]uint32, []st
 }
 
 func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string) {
-	ids, tokens, _ := t.EncodeErr(str, addSpecialTokens)
+	if t == nil || t.tokenizer == nil {
+		return nil, nil
+	}
+	cStr := C.CString(str)
+	defer C.free(unsafe.Pointer(cStr))
+	options := encodeOpts{
+		AddSpecialTokens: C.bool(addSpecialTokens),
+		ReturnTokens:     C.bool(true),
+	}
+	res := C.tokenizers_encode(t.tokenizer, cStr, (*C.struct_tokenizers_encode_options)(unsafe.Pointer(&options)))
+	len := int(res.len)
+	if len == 0 {
+		return nil, nil
+	}
+	defer C.tokenizers_free_buffer(res)
+
+	ids := uintVecToSlice(res.ids, len)
+
+	var tokens []string
+	if res.tokens != nil {
+		tokens = make([]string, len)
+		for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
+			tokens[i] = C.GoString(s)
+		}
+	}
+
 	return ids, tokens
 }
 
@@ -477,8 +495,8 @@ func WithReturnOffsets() EncodeOption {
 }
 
 func (t *Tokenizer) EncodeWithOptionsErr(str string, addSpecialTokens bool, opts ...EncodeOption) (Encoding, error) {
-	if err := t.ensureReady(); err != nil {
-		return Encoding{}, err
+	if t == nil || t.tokenizer == nil {
+		return Encoding{}, ErrTokenizerClosed
 	}
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
@@ -534,13 +552,59 @@ func (t *Tokenizer) EncodeWithOptionsErr(str string, addSpecialTokens bool, opts
 }
 
 func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ...EncodeOption) Encoding {
-	encoding, _ := t.EncodeWithOptionsErr(str, addSpecialTokens, opts...)
+	if t == nil || t.tokenizer == nil {
+		return Encoding{}
+	}
+	cStr := C.CString(str)
+	defer C.free(unsafe.Pointer(cStr))
+
+	encOptions := encodeOpts{
+		AddSpecialTokens: C.bool(addSpecialTokens),
+	}
+	for _, opt := range opts {
+		opt(&encOptions)
+	}
+
+	res := C.tokenizers_encode(t.tokenizer, cStr, (*C.struct_tokenizers_encode_options)(unsafe.Pointer(&encOptions)))
+	len := int(res.len)
+	if len == 0 {
+		return Encoding{}
+	}
+	defer C.tokenizers_free_buffer(res)
+
+	encoding := Encoding{}
+	encoding.IDs = uintVecToSlice(res.ids, len)
+
+	if encOptions.ReturnTypeIDs && res.type_ids != nil {
+		encoding.TypeIDs = uintVecToSlice(res.type_ids, len)
+	}
+
+	if encOptions.ReturnTokens && res.tokens != nil {
+		tokens := make([]string, len)
+		for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
+			tokens[i] = C.GoString(s)
+		}
+		encoding.Tokens = tokens
+	}
+
+	if encOptions.ReturnSpecialTokensMask && res.special_tokens_mask != nil {
+		encoding.SpecialTokensMask = uintVecToSlice(res.special_tokens_mask, len)
+	}
+
+	if encOptions.ReturnAttentionMask && res.attention_mask != nil {
+		encoding.AttentionMask = uintVecToSlice(res.attention_mask, len)
+	}
+
+	if encOptions.ReturnOffsets && res.offsets != nil {
+		encoding.Offsets = offsetVecToSlice(res.offsets, len)
+	}
+
 	return encoding
 }
 
 func (t *Tokenizer) DecodeErr(tokenIDs []uint32, skipSpecialTokens bool) (string, error) {
-	if err := t.ensureReady(); err != nil {
-		return "", err
+	if t == nil || t.tokenizer == nil {
+		return "", ErrTokenizerClosed
 	}
 	if len(tokenIDs) == 0 {
 		return "", nil
@@ -555,8 +619,19 @@ func (t *Tokenizer) DecodeErr(tokenIDs []uint32, skipSpecialTokens bool) (string
 }
 
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
-	decoded, _ := t.DecodeErr(tokenIDs, skipSpecialTokens)
-	return decoded
+	if t == nil || t.tokenizer == nil {
+		return ""
+	}
+	if len(tokenIDs) == 0 {
+		return ""
+	}
+	len := C.uint(len(tokenIDs))
+	res := C.tokenizers_decode(t.tokenizer, (*C.uint)(unsafe.Pointer(&tokenIDs[0])), len, C.bool(skipSpecialTokens))
+	if res == nil {
+		return ""
+	}
+	defer C.tokenizers_free_string(res)
+	return C.GoString(res)
 }
 
 func (t *Tokenizer) VocabSize() uint32 {
