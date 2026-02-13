@@ -6,12 +6,19 @@ use tokenizers::tokenizer::Tokenizer;
 use serde::{Deserialize, Serialize};
 use tiktoken_rs;
 
+const TOKENIZERS_VERSION: &[u8] = concat!(env!("CARGO_PKG_VERSION"), "\0").as_bytes();
+
 // Version-specific symbol that will cause link failure if version doesn't match
 // Bump minor.patch version every time we bump tokenizers dependency version.
 // Can't bump major version because Go doesn't like major version >= 2.
 #[no_mangle]
 pub extern "C" fn tokenizers_version_1_23_0() {
     // This function exists purely as a link-time version check
+}
+
+#[no_mangle]
+pub extern "C" fn tokenizers_version() -> *const libc::c_char {
+    TOKENIZERS_VERSION.as_ptr().cast()
 }
 
 /// Truncation direction for tokenizer truncation
@@ -464,9 +471,13 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
     let mut tokens: *mut *mut libc::c_char = ptr::null_mut();
     if options.return_tokens {
         if let Some(token_strings) = encoding_details.tokens {
-            let mut vec_tokens = token_strings.into_iter()
-                .map(|s| std::ffi::CString::new(s).unwrap().into_raw())
-                .collect::<Vec<_>>();
+            let mut vec_tokens = Vec::with_capacity(token_strings.len());
+            for token in token_strings {
+                let sanitized = token.replace('\0', "\u{FFFD}");
+                let c_string = std::ffi::CString::new(sanitized)
+                    .unwrap_or_else(|_| std::ffi::CString::new("").expect("empty string is a valid C string"));
+                vec_tokens.push(c_string.into_raw());
+            }
             vec_tokens.shrink_to_fit();
             tokens = vec_tokens.as_mut_ptr();
             std::mem::forget(vec_tokens);
@@ -607,6 +618,7 @@ pub extern "C" fn tokenizers_free_string(ptr: *mut libc::c_char) {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+    use std::path::PathBuf;
 
     /// Common tiktoken pattern for models like Kimi
     const TIKTOKEN_PATTERN_KIMI: &str = r"[\p{Han}]+|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
@@ -614,13 +626,23 @@ mod tests {
     /// Common tiktoken pattern for models like GPT-4 (cl100k_base)
     const TIKTOKEN_PATTERN_CL100K_BASE: &str = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+";
 
+    fn test_data_path(relative: &str) -> String {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test/data")
+            .join(relative)
+            .to_string_lossy()
+            .into_owned()
+    }
+
     #[test]
     fn test_tiktoken() -> Result<(), Box<dyn std::error::Error>> {
         // Use the constant pattern for tokenization
+        let model_file = test_data_path("kimi-k2-instruct/tiktoken.model");
+        let config_file = test_data_path("kimi-k2-instruct/tokenizer_config.json");
         let (bpe, _vocab_size, _special_tokens, _special_token_ids) = crate::create_tiktoken_encoder(
-            "test/data/kimi-k2-instruct/tiktoken.model",
-            "test/data/kimi-k2-instruct/tokenizer_config.json",
-            TIKTOKEN_PATTERN_KIMI
+            &model_file,
+            &config_file,
+            TIKTOKEN_PATTERN_KIMI,
         )?;
 
         // Test encoding and decoding
@@ -635,20 +657,24 @@ mod tests {
 
     /// Create a test tiktoken unified tokenizer
     fn create_test_tiktoken_tokenizer() -> Result<UnifiedTokenizer, Box<dyn std::error::Error>> {
+        let model_file = test_data_path("kimi-k2-instruct/tiktoken.model");
+        let config_file = test_data_path("kimi-k2-instruct/tokenizer_config.json");
         let (bpe, vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
-            "test/data/kimi-k2-instruct/tiktoken.model",
-            "test/data/kimi-k2-instruct/tokenizer_config.json",
-            TIKTOKEN_PATTERN_KIMI
+            &model_file,
+            &config_file,
+            TIKTOKEN_PATTERN_KIMI,
         )?;
         Ok(UnifiedTokenizer::Tiktoken(bpe, vocab_size, special_tokens, special_token_ids))
     }
 
     /// Create a test Llama 3 tiktoken unified tokenizer
     fn create_test_llama_tokenizer() -> Result<UnifiedTokenizer, Box<dyn std::error::Error>> {
+        let model_file = test_data_path("meta-llama-3-8b-instruct/tiktoken.model");
+        let config_file = test_data_path("meta-llama-3-8b-instruct/tokenizer_config.json");
         let (bpe, vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
-            "test/data/meta-llama-3-8b-instruct/tiktoken.model",
-            "test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
-            TIKTOKEN_PATTERN_CL100K_BASE
+            &model_file,
+            &config_file,
+            TIKTOKEN_PATTERN_CL100K_BASE,
         )?;
         Ok(UnifiedTokenizer::Tiktoken(bpe, vocab_size, special_tokens, special_token_ids))
     }
@@ -656,7 +682,8 @@ mod tests {
     #[test]
     fn test_unified_huggingface() -> Result<(), Box<dyn std::error::Error>> {
         // Test with HuggingFace tokenizer
-        let tokenizer = Tokenizer::from_file("test/data/bert-base-uncased.json").map_err(|e| format!("Failed to load tokenizer: {}", e))?;
+        let tokenizer_file = test_data_path("bert-base-uncased.json");
+        let tokenizer = Tokenizer::from_file(&tokenizer_file).map_err(|e| format!("Failed to load tokenizer: {}", e))?;
         let unified = UnifiedTokenizer::HuggingFace(tokenizer);
         
         let text = "Hello, world!";
@@ -831,10 +858,12 @@ mod tests {
     #[test]
     fn test_llama_special_tokens() -> Result<(), Box<dyn std::error::Error>> {
         // Test special token parsing and handling for Llama 3
+        let model_file = test_data_path("meta-llama-3-8b-instruct/tiktoken.model");
+        let config_file = test_data_path("meta-llama-3-8b-instruct/tokenizer_config.json");
         let (_bpe, _vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
-            "test/data/meta-llama-3-8b-instruct/tiktoken.model",
-            "test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
-            TIKTOKEN_PATTERN_CL100K_BASE
+            &model_file,
+            &config_file,
+            TIKTOKEN_PATTERN_CL100K_BASE,
         )?;
         
         // Verify special tokens were parsed
@@ -924,10 +953,12 @@ mod tests {
     #[test]
     fn test_tiktoken_special_tokens() -> Result<(), Box<dyn std::error::Error>> {
         // Test special token parsing and handling
+        let model_file = test_data_path("kimi-k2-instruct/tiktoken.model");
+        let config_file = test_data_path("kimi-k2-instruct/tokenizer_config.json");
         let (_bpe, _vocab_size, special_tokens, special_token_ids) = create_tiktoken_encoder(
-            "test/data/kimi-k2-instruct/tiktoken.model",
-            "test/data/kimi-k2-instruct/tokenizer_config.json",
-            TIKTOKEN_PATTERN_KIMI
+            &model_file,
+            &config_file,
+            TIKTOKEN_PATTERN_KIMI,
         )?;
         
         // Verify special tokens were parsed

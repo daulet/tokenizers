@@ -423,6 +423,21 @@ func TestDecodeInvalidString(t *testing.T) {
 	assert.Empty(t, str)
 }
 
+func TestErrorAPIOnClosedTokenizer(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	require.NoError(t, tk.Close())
+
+	_, _, err = tk.EncodeErr("hello world", false)
+	require.Error(t, err)
+
+	_, err = tk.EncodeWithOptionsErr("hello world", false, tokenizers.WithReturnTokens())
+	require.Error(t, err)
+
+	_, err = tk.DecodeErr([]uint32{101, 7592, 102}, true)
+	require.Error(t, err)
+}
+
 func TestVocabSize(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)
@@ -694,6 +709,10 @@ func TestTiktokenReplacementCharacter(t *testing.T) {
 }
 
 func TestFromPretrained(t *testing.T) {
+	if os.Getenv("TOKENIZERS_RUN_NETWORK_TESTS") != "1" {
+		t.Skip("set TOKENIZERS_RUN_NETWORK_TESTS=1 to run network-dependent tests")
+	}
+
 	tests := []struct {
 		name          string
 		modelID       string

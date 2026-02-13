@@ -3,7 +3,7 @@
 #include <stddef.h>
 
 struct tokenizers_encode_options {
-  bool add_special_token;
+  bool add_special_tokens;
   bool return_type_ids;
   bool return_tokens;
   bool return_special_tokens_mask;
@@ -20,16 +20,16 @@ struct tokenizers_buffer {
   uint32_t *type_ids;
   uint32_t *special_tokens_mask;
   uint32_t *attention_mask;
-  char *tokens;
+  char **tokens;
   size_t *offsets;
-  uint32_t len;
+  size_t len;
 };
 
 const char *tokenizers_version();
 
 void *tokenizers_from_bytes(const uint8_t *config, uint32_t len, const struct tokenizers_options *options, char **error);
 
-void *tokenizers_from_bytes_with_truncation(const uint8_t *config, uint32_t len, uint32_t max_len, uint8_t direction, char **error);
+void *tokenizers_from_bytes_with_truncation(const uint8_t *config, uint32_t len, size_t max_len, uint8_t direction, char **error);
 
 void *tokenizers_from_file(const char *config, char **error);
 

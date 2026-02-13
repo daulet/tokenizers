@@ -9,8 +9,12 @@ go test . -bench=. -benchmem -count=6 -timeout 30m | tee benchmarks/$(git rev-pa
 
 Then do the same for the previous commit in upstream/main and then publish the diff along with your PR:
 ```
-git checkout .
-benchstat benchmarks/$(git rev-parse HEAD^1).txt benchmarks/$(git rev-parse HEAD).txt
+CURRENT_SHA=$(git rev-parse HEAD)
+git switch --detach HEAD^1
+make build
+go test . -bench=. -benchmem -count=6 -timeout 30m | tee benchmarks/$(git rev-parse HEAD).txt
+benchstat benchmarks/$(git rev-parse HEAD).txt benchmarks/${CURRENT_SHA}.txt
+git switch -
 ```
 
 It should look something like this:

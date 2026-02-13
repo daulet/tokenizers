@@ -8,15 +8,26 @@ Go bindings for the [HuggingFace Tokenizers](https://github.com/huggingface/toke
 
 ### Using pre-built binaries
 
-If you don't want to install Rust toolchain, build it in docker: `docker build --platform=linux/amd64 -f release/Dockerfile .` or use prebuilt binaries from the [releases](https://github.com/daulet/tokenizers/releases) page. Prebuilt libraries are available for:
+If you don't want to install Rust toolchain, build it in docker: `docker build --platform=linux/amd64 -f release/Dockerfile .` or use prebuilt binaries from the [releases](https://github.com/daulet/tokenizers/releases) page.
+
+<details>
+<summary>Links to prebuilt libraries</summary>
 
 * [darwin-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.darwin-arm64.tar.gz)
+* [darwin-aarch64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.darwin-aarch64.tar.gz)
+* [darwin-x86_64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.darwin-x86_64.tar.gz)
 * [linux-arm64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-arm64.tar.gz)
+* [linux-aarch64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-aarch64.tar.gz)
 * [linux-amd64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-amd64.tar.gz)
+* [linux-x86_64](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-x86_64.tar.gz)
+* [linux-s390x](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-s390x.tar.gz)
+* [linux-ppc64le](https://github.com/daulet/tokenizers/releases/latest/download/libtokenizers.linux-ppc64le.tar.gz)
+
+</details>
 
 ## Getting started
 
-TLDR: [working example](example/main.go).
+TLDR: [working example](examples/go/main.go).
 
 Load a tokenizer from a JSON config:
 
@@ -56,6 +67,8 @@ fmt.Println(tk.Encode("brown fox jumps over the lazy dog", true))
 fmt.Println(tk.Decode([]uint32{2829, 4419, 14523, 2058, 1996, 13971, 3899}, true))
 // brown fox jumps over the lazy dog
 ```
+
+If you want explicit error handling for encode/decode calls, use `EncodeErr`, `EncodeWithOptionsErr`, and `DecodeErr`.
 
 Encode text with options:
 

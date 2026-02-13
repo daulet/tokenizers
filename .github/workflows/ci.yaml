@@ -18,7 +18,9 @@ jobs:
       uses: actions/cache@v4
       with:
         path: "/home/runner/.cache/bazel"
-        key: bazel
+        key: ${{ runner.os }}-bazel-${{ hashFiles('MODULE.bazel.lock', 'Cargo.lock', 'go.sum', '.github/workflows/ci.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-bazel-
 
     - name: Install bazelisk
       run: |
