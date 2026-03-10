@@ -69,6 +69,12 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             archive_name: libtokenizers.linux-arm64.tar.gz
             alias_name: libtokenizers.linux-aarch64.tar.gz
+          - target: x86_64-unknown-linux-musl
+            archive_name: libtokenizers.linux-musl-x86_64.tar.gz
+            alias_name: libtokenizers.linux-musl-amd64.tar.gz
+          - target: aarch64-unknown-linux-musl
+            archive_name: libtokenizers.linux-musl-arm64.tar.gz
+            alias_name: libtokenizers.linux-musl-aarch64.tar.gz
           - target: s390x-unknown-linux-gnu
             archive_name: libtokenizers.linux-s390x.tar.gz
             alias_name: ""
