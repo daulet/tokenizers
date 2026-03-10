@@ -12,7 +12,7 @@ const TOKENIZERS_VERSION: &[u8] = concat!(env!("CARGO_PKG_VERSION"), "\0").as_by
 // Bump minor.patch version every time we bump tokenizers dependency version.
 // Can't bump major version because Go doesn't like major version >= 2.
 #[no_mangle]
-pub extern "C" fn tokenizers_version_1_23_0() {
+pub extern "C" fn tokenizers_version_1_26_0() {
     // This function exists purely as a link-time version check
 }
 

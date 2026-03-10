@@ -1,6 +1,6 @@
 [package]
 name = "tokenizers-ffi"
-version = "1.23.0"
+version = "1.26.0"
 edition = "2021"
 description = "FFI bindings for HuggingFace tokenizers with tiktoken support"
 

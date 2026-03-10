@@ -6,7 +6,7 @@ rust_static_library(
     srcs = glob([
         "src/**/*.rs",
     ]),
-    version = "1.23.0",
+    version = "1.26.0",
     aliases = aliases(),
     proc_macro_deps = all_crate_deps(
         proc_macro = True,

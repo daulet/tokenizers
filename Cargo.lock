@@ -1039,7 +1039,7 @@ dependencies = [
 
 [[package]]
 name = "tokenizers-ffi"
-version = "1.23.0"
+version = "1.26.0"
 dependencies = [
  "base64 0.22.1",
  "criterion",

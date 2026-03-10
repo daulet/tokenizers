@@ -1,6 +1,6 @@
 module(
     name = "com_github_daulet_tokenizers",
-    version = "1.23.0",
+    version = "1.26.0",
 )
 
 bazel_dep(name = "platforms", version = "1.0.0")
