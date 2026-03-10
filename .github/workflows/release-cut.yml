@@ -33,11 +33,22 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       release_commit: ${{ steps.commit.outputs.release_commit }}
     steps:
+      - name: Require release token
+        shell: bash
+        env:
+          RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${RELEASE_PUSH_TOKEN}" ]]; then
+            echo "::error::RELEASE_PUSH_TOKEN secret is required."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PUSH_TOKEN || github.token }}
+          token: ${{ secrets.RELEASE_PUSH_TOKEN }}
 
       - name: Validate release branch
         shell: bash
@@ -102,12 +113,10 @@ jobs:
           git commit -m "chore: release ${{ steps.version.outputs.tag }}"
           git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
 
-          if [[ -n "${RELEASE_PUSH_TOKEN}" ]]; then
-            git remote set-url origin "https://x-access-token:${RELEASE_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          fi
+          git remote set-url origin "https://x-access-token:${RELEASE_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
           if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then
-            echo "::error::Push to main failed. If branch protection requires pull requests, either add bypass for GitHub Actions or set RELEASE_PUSH_TOKEN to a token for an actor allowed to bypass."
+            echo "::error::Push to main failed. Ensure the RELEASE_PUSH_TOKEN actor can bypass protected-branch restrictions on main."
             exit 1
           fi
           if ! git push origin "${{ steps.version.outputs.tag }}"; then
@@ -127,7 +136,7 @@ jobs:
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.RELEASE_PUSH_TOKEN || github.token }}
+          token: ${{ secrets.RELEASE_PUSH_TOKEN }}
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ needs.prepare.outputs.release_commit }}
