@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PUSH_TOKEN || github.token }}
 
       - name: Validate release branch
         shell: bash
@@ -79,6 +80,8 @@ jobs:
       - name: Commit, tag, and push
         id: commit
         shell: bash
+        env:
+          RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -99,8 +102,18 @@ jobs:
           git commit -m "chore: release ${{ steps.version.outputs.tag }}"
           git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
 
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-          git push origin "${{ steps.version.outputs.tag }}"
+          if [[ -n "${RELEASE_PUSH_TOKEN}" ]]; then
+            git remote set-url origin "https://x-access-token:${RELEASE_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          fi
+
+          if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then
+            echo "::error::Push to main failed. If branch protection requires pull requests, either add bypass for GitHub Actions or set RELEASE_PUSH_TOKEN to a token for an actor allowed to bypass."
+            exit 1
+          fi
+          if ! git push origin "${{ steps.version.outputs.tag }}"; then
+            echo "::error::Failed to push release tag. Check tag protection settings for v*."
+            exit 1
+          fi
 
           echo "release_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
