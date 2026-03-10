@@ -129,11 +129,11 @@ fi
 
 next_symbol="${next_version//./_}"
 
-perl -0pi -e "s/(\\[package\\]\\nname = \"tokenizers-ffi\"\\nversion = \")[^\"]+(\"\\n)/\$1${next_version}\$2/s" crates/tokenizers/Cargo.toml
-perl -0pi -e "s/(\\[\\[package\\]\\]\\nname = \"tokenizers-ffi\"\\nversion = \")[^\"]+(\"\\n)/\$1${next_version}\$2/s" Cargo.lock
-perl -pi -e "s/tokenizers_version_\\d+_\\d+_\\d+/tokenizers_version_${next_symbol}/g" tokenizer.go crates/tokenizers/src/lib.rs
-perl -pi -e 'if (/name = "tokenizers_rs"/) { $in = 1 } if ($in && /version = "/) { s/version = "[^"]+"/version = "'"${next_version}"'"/; $in = 0 }' crates/tokenizers/BUILD.bazel
-perl -0pi -e "s/(module\\(\\n\\s*name = \"com_github_daulet_tokenizers\",\\n\\s*version = \")[^\"]+(\",\\n\\))/\$1${next_version}\$2/s" MODULE.bazel
+NEXT_VERSION="${next_version}" perl -0pi -e 's/(\[package\]\nname = "tokenizers-ffi"\nversion = ")[^"]+("\n)/$1.$ENV{NEXT_VERSION}.$2/se' crates/tokenizers/Cargo.toml
+NEXT_VERSION="${next_version}" perl -0pi -e 's/(\[\[package\]\]\nname = "tokenizers-ffi"\nversion = ")[^"]+("\n)/$1.$ENV{NEXT_VERSION}.$2/se' Cargo.lock
+NEXT_SYMBOL="${next_symbol}" perl -pi -e 's/tokenizers_version_\d+_\d+_\d+/"tokenizers_version_".$ENV{NEXT_SYMBOL}/ge' tokenizer.go crates/tokenizers/src/lib.rs
+NEXT_VERSION="${next_version}" perl -pi -e 'if (/name = "tokenizers_rs"/) { $in = 1 } if ($in && /version = "/) { s/version = "[^"]+"/version = "$ENV{NEXT_VERSION}"/; $in = 0 }' crates/tokenizers/BUILD.bazel
+NEXT_VERSION="${next_version}" perl -0pi -e 's/(module\(\n\s*name = "com_github_daulet_tokenizers",\n\s*version = ")[^"]+(",\n\))/$1.$ENV{NEXT_VERSION}.$2/se' MODULE.bazel
 
 if ! grep -Eq "^version = \"${next_version}\"$" crates/tokenizers/Cargo.toml; then
   echo "Failed to write crates/tokenizers/Cargo.toml version ${next_version}" >&2
