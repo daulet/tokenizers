@@ -717,6 +717,19 @@ mod tests {
                     .collect();
                 assert_eq!(&got, tokens);
             }
+            for (got, want) in [
+                (buf.type_ids, &expected.type_ids),
+                (buf.special_tokens_mask, &expected.special_tokens_mask),
+                (buf.attention_mask, &expected.attention_mask),
+            ] {
+                match want {
+                    Some(want) => {
+                        let got = unsafe { std::slice::from_raw_parts(got, buf.len) };
+                        assert_eq!(got, want.as_slice());
+                    }
+                    None => assert!(got.is_null()),
+                }
+            }
             if let Some(offsets) = &expected.offsets {
                 let flat = unsafe { std::slice::from_raw_parts(buf.offsets, buf.len * 2) };
                 let pairs: Vec<(usize, usize)> = flat.chunks(2).map(|c| (c[0], c[1])).collect();

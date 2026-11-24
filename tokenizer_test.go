@@ -450,7 +450,8 @@ func TestCloseWhileInUse(t *testing.T) {
 		done.Add(1)
 		go func() {
 			defer done.Done()
-			started.Done()
+			// Signal only after a successful call, so Close overlaps running calls.
+			first := true
 			for {
 				enc, err := tk.EncodeWithOptionsErr(text, true, tokenizers.WithReturnAllAttributes())
 				if err != nil {
@@ -464,6 +465,10 @@ func TestCloseWhileInUse(t *testing.T) {
 					return
 				}
 				tk.VocabSize()
+				if first {
+					started.Done()
+					first = false
+				}
 			}
 		}()
 	}
