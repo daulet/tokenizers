@@ -941,6 +941,18 @@ func TestEncodeBatchKeepsNULBytes(t *testing.T) {
 	assert.Equal(t, []string{"brown", "##fo", "##x"}, got[0].Tokens)
 }
 
+func TestEncodeBatchReportsError(t *testing.T) {
+	// The labse test vocabulary has no [UNK] token, so unknown words fail to encode.
+	tk, err := tokenizers.FromBytes(embeddedBytes)
+	require.NoError(t, err)
+	defer tk.Close()
+
+	_, err = tk.EncodeBatchErr([]string{"brown fox", "zzzz"}, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "[UNK]")
+	assert.Nil(t, tk.EncodeBatch([]string{"brown fox", "zzzz"}, false))
+}
+
 func TestEncodeBatchOnClosedTokenizer(t *testing.T) {
 	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
 	require.NoError(t, err)

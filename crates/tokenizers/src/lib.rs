@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::ptr;
 use std::collections::HashMap;
 use tokenizers::tokenizer::Tokenizer;
-use tokenizers::utils::parallelism::MaybeParallelIterator;
+use tokenizers::utils::parallelism::{get_parallelism, set_parallelism, MaybeParallelIterator};
 use serde::{Deserialize, Serialize};
 use tiktoken_rs;
 
@@ -561,9 +561,31 @@ pub struct tokenizers_batch_buffer {
     len: usize,
 }
 
+fn set_error(error: *mut *mut libc::c_char, message: &str) {
+    if error.is_null() {
+        return;
+    }
+    let sanitized = message.replace('\0', "\u{FFFD}");
+    if let Ok(c_string) = std::ffi::CString::new(sanitized) {
+        unsafe { *error = c_string.into_raw(); }
+    }
+}
+
+static PARALLELISM_INIT: std::sync::Once = std::sync::Once::new();
+
+/// The tokenizers crate reads `TOKENIZERS_PARALLELISM` with `std::env::var` on every
+/// parallel call. Rust's environment lock does not cover a host program (such as Go)
+/// that calls libc `setenv`, so concurrent reads could crash. Reading it once and
+/// storing it as the crate's override avoids the repeated reads.
+fn init_parallelism() {
+    PARALLELISM_INIT.call_once(|| set_parallelism(get_parallelism()));
+}
+
 /// Encodes `count` texts in one call. `texts` holds the texts back to back and
 /// `text_lens[i]` is the byte length of text `i`, so texts are not NUL-terminated
-/// and may contain NUL bytes. On failure, or when `count` is 0, `encodings` is null.
+/// and may contain NUL bytes. On failure `encodings` is null and, if `error` is not
+/// null, `*error` is set to a message the caller frees with `tokenizers_free_string`.
+/// When `count` is 0, `encodings` is null and no error is set.
 /// Free the result with `tokenizers_free_batch_buffer`.
 #[no_mangle]
 pub extern "C" fn tokenizers_encode_batch(
@@ -572,9 +594,18 @@ pub extern "C" fn tokenizers_encode_batch(
     text_lens: *const usize,
     count: usize,
     options: &tokenizers_encode_options,
+    error: *mut *mut libc::c_char,
 ) -> tokenizers_batch_buffer {
     let failed = tokenizers_batch_buffer { encodings: ptr::null_mut(), len: 0 };
-    if ptr.is_null() || text_lens.is_null() || count == 0 {
+    if count == 0 {
+        return failed;
+    }
+    if ptr.is_null() {
+        set_error(error, "tokenizer pointer is null");
+        return failed;
+    }
+    if text_lens.is_null() {
+        set_error(error, "text lengths pointer is null");
         return failed;
     }
 
@@ -588,44 +619,59 @@ pub extern "C" fn tokenizers_encode_batch(
     let lens = unsafe { std::slice::from_raw_parts(text_lens, count) };
     let total = match lens.iter().try_fold(0usize, |acc, &l| acc.checked_add(l)) {
         Some(total) => total,
-        None => return failed,
+        None => {
+            set_error(error, "total text length overflows");
+            return failed;
+        }
     };
     let data: &[u8] = if total == 0 {
         &[]
     } else if texts.is_null() {
+        set_error(error, "texts pointer is null");
         return failed;
     } else {
         unsafe { std::slice::from_raw_parts(texts, total) }
     };
 
-    // Same lossy UTF-8 handling as tokenizers_encode.
-    let mut start = 0;
-    let messages: Vec<std::borrow::Cow<str>> = lens
-        .iter()
-        .map(|&l| {
-            let message = String::from_utf8_lossy(&data[start..start + l]);
-            start += l;
-            message
-        })
-        .collect();
-    let message_refs: Vec<&str> = messages.iter().map(|m| m.as_ref()).collect();
+    init_parallelism();
 
-    let all_details = match std::panic::catch_unwind(|| {
-        unified_tokenizer.encode_batch_with_details(&message_refs, options.add_special_tokens)
-    }) {
-        Ok(Ok(details)) => details,
-        Ok(Err(_)) | Err(_) => return failed,
+    let result = std::panic::catch_unwind(|| -> Result<Vec<tokenizers_buffer>, String> {
+        // Same lossy UTF-8 handling as tokenizers_encode.
+        let mut start = 0;
+        let messages: Vec<std::borrow::Cow<str>> = lens
+            .iter()
+            .map(|&l| {
+                let message = String::from_utf8_lossy(&data[start..start + l]);
+                start += l;
+                message
+            })
+            .collect();
+        let message_refs: Vec<&str> = messages.iter().map(|m| m.as_ref()).collect();
+
+        let all_details = unified_tokenizer
+            .encode_batch_with_details(&message_refs, options.add_special_tokens)
+            .map_err(|e| e.to_string())?;
+        Ok(all_details
+            .into_iter()
+            .map(|details| details_to_buffer(details, options))
+            .collect())
+    });
+
+    let encodings = match result {
+        Ok(Ok(encodings)) => encodings,
+        Ok(Err(message)) => {
+            set_error(error, &message);
+            return failed;
+        }
+        Err(_) => {
+            set_error(error, "panic while encoding batch");
+            return failed;
+        }
     };
 
-    let mut encodings: Vec<tokenizers_buffer> = all_details
-        .into_iter()
-        .map(|details| details_to_buffer(details, options))
-        .collect();
-    encodings.shrink_to_fit();
+    let encodings = encodings.into_boxed_slice();
     let len = encodings.len();
-    let encodings_ptr = encodings.as_mut_ptr();
-    std::mem::forget(encodings);
-    tokenizers_batch_buffer { encodings: encodings_ptr, len }
+    tokenizers_batch_buffer { encodings: Box::into_raw(encodings).cast(), len }
 }
 
 #[no_mangle]
@@ -718,8 +764,8 @@ pub extern "C" fn tokenizers_free_batch_buffer(buf: tokenizers_batch_buffer) {
     if buf.encodings.is_null() {
         return;
     }
-    let encodings = unsafe { Vec::from_raw_parts(buf.encodings, buf.len, buf.len) };
-    for encoding in encodings {
+    let encodings = unsafe { Box::from_raw(ptr::slice_from_raw_parts_mut(buf.encodings, buf.len)) };
+    for encoding in encodings.into_vec() {
         tokenizers_free_buffer(encoding);
     }
 }
@@ -1165,8 +1211,10 @@ mod tests {
 
         let texts = b"hello world";
         let lens = [5usize, 0, 6];
-        let batch = tokenizers_encode_batch(ptr, texts.as_ptr(), lens.as_ptr(), lens.len(), &options);
+        let mut error: *mut libc::c_char = ptr::null_mut();
+        let batch = tokenizers_encode_batch(ptr, texts.as_ptr(), lens.as_ptr(), lens.len(), &options, &mut error);
         assert!(!batch.encodings.is_null());
+        assert!(error.is_null());
         assert_eq!(batch.len, 3);
         let encodings = unsafe { std::slice::from_raw_parts(batch.encodings, batch.len) };
         // [CLS] hello [SEP], [CLS] [SEP], [CLS] world [SEP]
@@ -1174,20 +1222,37 @@ mod tests {
         tokenizers_free_batch_buffer(batch);
 
         let all_empty = [0usize, 0];
-        let batch = tokenizers_encode_batch(ptr, ptr::null(), all_empty.as_ptr(), all_empty.len(), &options);
+        let batch = tokenizers_encode_batch(ptr, ptr::null(), all_empty.as_ptr(), all_empty.len(), &options, &mut error);
         assert_eq!(batch.len, 2);
+        assert!(error.is_null());
         tokenizers_free_batch_buffer(batch);
 
-        let no_texts = tokenizers_encode_batch(ptr, texts.as_ptr(), lens.as_ptr(), 0, &options);
+        let no_texts = tokenizers_encode_batch(ptr, texts.as_ptr(), lens.as_ptr(), 0, &options, &mut error);
         assert!(no_texts.encodings.is_null());
-        let null_lens = tokenizers_encode_batch(ptr, texts.as_ptr(), ptr::null(), 1, &options);
+        assert!(error.is_null());
+
+        let take_error = |error: &mut *mut libc::c_char| -> String {
+            assert!(!error.is_null());
+            let message = unsafe { CStr::from_ptr(*error) }.to_string_lossy().into_owned();
+            tokenizers_free_string(*error);
+            *error = ptr::null_mut();
+            message
+        };
+        let null_lens = tokenizers_encode_batch(ptr, texts.as_ptr(), ptr::null(), 1, &options, &mut error);
         assert!(null_lens.encodings.is_null());
-        let null_texts = tokenizers_encode_batch(ptr, ptr::null(), lens.as_ptr(), lens.len(), &options);
+        assert_eq!(take_error(&mut error), "text lengths pointer is null");
+        let null_texts = tokenizers_encode_batch(ptr, ptr::null(), lens.as_ptr(), lens.len(), &options, &mut error);
         assert!(null_texts.encodings.is_null());
+        assert_eq!(take_error(&mut error), "texts pointer is null");
         let overflow = [usize::MAX, 1];
-        let overflowed = tokenizers_encode_batch(ptr, texts.as_ptr(), overflow.as_ptr(), overflow.len(), &options);
+        let overflowed = tokenizers_encode_batch(ptr, texts.as_ptr(), overflow.as_ptr(), overflow.len(), &options, &mut error);
         assert!(overflowed.encodings.is_null());
+        assert_eq!(take_error(&mut error), "total text length overflows");
         tokenizers_free_batch_buffer(overflowed);
+
+        // A null error pointer is allowed.
+        let null_lens = tokenizers_encode_batch(ptr, texts.as_ptr(), ptr::null(), 1, &options, ptr::null_mut());
+        assert!(null_lens.encodings.is_null());
 
         tokenizers_free_tokenizer(ptr);
         Ok(())

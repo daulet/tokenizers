@@ -553,7 +553,8 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 // EncodeBatchErr encodes all texts with a single call into the Rust library and
 // returns one Encoding per text, in input order. It accepts the same options as
 // EncodeWithOptionsErr. The texts are encoded in parallel unless the
-// TOKENIZERS_PARALLELISM environment variable is set to false.
+// TOKENIZERS_PARALLELISM environment variable is set to false. The variable is
+// read once, on the first batch call in the process.
 //
 // Results match calling EncodeWithOptionsErr on each text, with two exceptions:
 // a tokenizer that pads with the BatchLongest strategy pads every encoding to the
@@ -590,8 +591,14 @@ func (t *Tokenizer) EncodeBatchErr(texts []string, addSpecialTokens bool, opts .
 		dataPtr = (*C.uint8_t)(unsafe.Pointer(&data[0]))
 	}
 
-	res := C.tokenizers_encode_batch(t.tokenizer, dataPtr, &lens[0], C.size_t(len(texts)), (*C.struct_tokenizers_encode_options)(unsafe.Pointer(&encOptions)))
+	var errPtr *C.char
+	res := C.tokenizers_encode_batch(t.tokenizer, dataPtr, &lens[0], C.size_t(len(texts)), (*C.struct_tokenizers_encode_options)(unsafe.Pointer(&encOptions)), &errPtr)
 	if res.encodings == nil {
+		if errPtr != nil {
+			errStr := C.GoString(errPtr)
+			C.tokenizers_free_string(errPtr)
+			return nil, fmt.Errorf("failed to encode batch: %s", errStr)
+		}
 		return nil, fmt.Errorf("failed to encode batch")
 	}
 	defer C.tokenizers_free_batch_buffer(res)

@@ -42,7 +42,7 @@ void *tokenizers_from_tiktoken(const char *model_file, const char *config_file, 
 
 struct tokenizers_buffer tokenizers_encode(void *ptr, const char *message, const struct tokenizers_encode_options *options);
 
-struct tokenizers_batch_buffer tokenizers_encode_batch(void *ptr, const uint8_t *texts, const size_t *text_lens, size_t count, const struct tokenizers_encode_options *options);
+struct tokenizers_batch_buffer tokenizers_encode_batch(void *ptr, const uint8_t *texts, const size_t *text_lens, size_t count, const struct tokenizers_encode_options *options, char **error);
 
 char *tokenizers_decode(void *ptr, const uint32_t *ids, uint32_t len, bool skip_special_tokens);
 
