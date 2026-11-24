@@ -523,34 +523,7 @@ func (t *Tokenizer) EncodeWithOptionsErr(str string, addSpecialTokens bool, opts
 	}
 	defer C.tokenizers_free_buffer(res)
 
-	encoding := Encoding{}
-	encoding.IDs = uintVecToSlice(res.ids, len)
-
-	if encOptions.ReturnTypeIDs && res.type_ids != nil {
-		encoding.TypeIDs = uintVecToSlice(res.type_ids, len)
-	}
-
-	if encOptions.ReturnTokens && res.tokens != nil {
-		tokens := make([]string, len)
-		for i, s := range (*[1 << 30]*C.char)(unsafe.Pointer(res.tokens))[:len:len] {
-			tokens[i] = C.GoString(s)
-		}
-		encoding.Tokens = tokens
-	}
-
-	if encOptions.ReturnSpecialTokensMask && res.special_tokens_mask != nil {
-		encoding.SpecialTokensMask = uintVecToSlice(res.special_tokens_mask, len)
-	}
-
-	if encOptions.ReturnAttentionMask && res.attention_mask != nil {
-		encoding.AttentionMask = uintVecToSlice(res.attention_mask, len)
-	}
-
-	if encOptions.ReturnOffsets && res.offsets != nil {
-		encoding.Offsets = offsetVecToSlice(res.offsets, len)
-	}
-
-	return encoding, nil
+	return bufferToEncoding(res, encOptions), nil
 }
 
 func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ...EncodeOption) Encoding {
@@ -574,6 +547,88 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 	}
 	defer C.tokenizers_free_buffer(res)
 
+	return bufferToEncoding(res, encOptions)
+}
+
+// EncodeBatchErr encodes all texts with a single call into the Rust library and
+// returns one Encoding per text, in input order. It accepts the same options as
+// EncodeWithOptionsErr. The texts are encoded in parallel unless the
+// TOKENIZERS_PARALLELISM environment variable is set to false. The variable is
+// read once, on the first batch call in the process.
+//
+// Results match calling EncodeWithOptionsErr on each text, with two exceptions:
+// a tokenizer that pads with the BatchLongest strategy pads every encoding to the
+// longest one in the batch, and a text containing a NUL byte is encoded in full
+// instead of being cut at the NUL.
+func (t *Tokenizer) EncodeBatchErr(texts []string, addSpecialTokens bool, opts ...EncodeOption) ([]Encoding, error) {
+	if t == nil || t.tokenizer == nil {
+		return nil, ErrTokenizerClosed
+	}
+	if len(texts) == 0 {
+		return []Encoding{}, nil
+	}
+
+	encOptions := encodeOpts{
+		AddSpecialTokens: C.bool(addSpecialTokens),
+	}
+	for _, opt := range opts {
+		opt(&encOptions)
+	}
+
+	// Pass all texts as one buffer plus their lengths, so no per-text C allocation is needed.
+	total := 0
+	for _, s := range texts {
+		total += len(s)
+	}
+	data := make([]byte, 0, total)
+	lens := make([]C.size_t, len(texts))
+	for i, s := range texts {
+		data = append(data, s...)
+		lens[i] = C.size_t(len(s))
+	}
+	var dataPtr *C.uint8_t
+	if total > 0 {
+		dataPtr = (*C.uint8_t)(unsafe.Pointer(&data[0]))
+	}
+
+	var errPtr *C.char
+	res := C.tokenizers_encode_batch(t.tokenizer, dataPtr, &lens[0], C.size_t(len(texts)), (*C.struct_tokenizers_encode_options)(unsafe.Pointer(&encOptions)), &errPtr)
+	if res.encodings == nil {
+		if errPtr != nil {
+			errStr := C.GoString(errPtr)
+			C.tokenizers_free_string(errPtr)
+			return nil, fmt.Errorf("failed to encode batch: %s", errStr)
+		}
+		return nil, fmt.Errorf("failed to encode batch")
+	}
+	defer C.tokenizers_free_batch_buffer(res)
+	if int(res.len) != len(texts) {
+		return nil, fmt.Errorf("failed to encode batch: got %d encodings for %d texts", int(res.len), len(texts))
+	}
+
+	buffers := unsafe.Slice(res.encodings, len(texts))
+	encodings := make([]Encoding, len(texts))
+	for i, buf := range buffers {
+		if buf.len > 0 {
+			encodings[i] = bufferToEncoding(buf, encOptions)
+		}
+	}
+	return encodings, nil
+}
+
+// EncodeBatch is EncodeBatchErr without the error. It returns nil if encoding fails.
+func (t *Tokenizer) EncodeBatch(texts []string, addSpecialTokens bool, opts ...EncodeOption) []Encoding {
+	encodings, err := t.EncodeBatchErr(texts, addSpecialTokens, opts...)
+	if err != nil {
+		return nil
+	}
+	return encodings
+}
+
+// bufferToEncoding copies a non-empty buffer into Go memory. The caller still owns
+// res and must free it.
+func bufferToEncoding(res C.struct_tokenizers_buffer, encOptions encodeOpts) Encoding {
+	len := int(res.len)
 	encoding := Encoding{}
 	encoding.IDs = uintVecToSlice(res.ids, len)
 
