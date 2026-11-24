@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/daulet/tokenizers"
@@ -436,6 +437,40 @@ func TestErrorAPIOnClosedTokenizer(t *testing.T) {
 
 	_, err = tk.DecodeErr([]uint32{101, 7592, 102}, true)
 	require.Error(t, err)
+}
+
+func TestCloseWhileInUse(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+
+	text := strings.Repeat("brown fox jumps over the lazy dog ", 200)
+	var started, done sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		started.Add(1)
+		done.Add(1)
+		go func() {
+			defer done.Done()
+			started.Done()
+			for {
+				enc, err := tk.EncodeWithOptionsErr(text, true, tokenizers.WithReturnAllAttributes())
+				if err != nil {
+					assert.ErrorIs(t, err, tokenizers.ErrTokenizerClosed)
+					return
+				}
+				assert.NotEmpty(t, enc.IDs)
+				_, err = tk.DecodeErr(enc.IDs, true)
+				if err != nil {
+					assert.ErrorIs(t, err, tokenizers.ErrTokenizerClosed)
+					return
+				}
+				tk.VocabSize()
+			}
+		}()
+	}
+	started.Wait()
+	require.NoError(t, tk.Close())
+	done.Wait()
+	require.NoError(t, tk.Close())
 }
 
 func TestVocabSize(t *testing.T) {

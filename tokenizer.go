@@ -47,6 +47,9 @@ var tokenizerFiles = map[string]bool{
 }
 
 type Tokenizer struct {
+	// mu is held for reading by calls into the native tokenizer and for
+	// writing by Close, so Close cannot free the tokenizer while a call uses it.
+	mu        sync.RWMutex
 	tokenizer unsafe.Pointer
 }
 
@@ -341,7 +344,14 @@ func downloadFile(url, destination string, authToken *string) error {
 	return nil
 }
 
+// Close frees the native tokenizer. It waits for calls running on other
+// goroutines to return. Calls made after Close behave as on a nil tokenizer.
 func (t *Tokenizer) Close() error {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	C.tokenizers_free_tokenizer(t.tokenizer)
 	t.tokenizer = nil
 	return nil
@@ -392,7 +402,12 @@ func offsetVecToSlice(arrPtr *C.size_t, tokenLength int) []Offset {
 }
 
 func (t *Tokenizer) EncodeErr(str string, addSpecialTokens bool) ([]uint32, []string, error) {
-	if t == nil || t.tokenizer == nil {
+	if t == nil {
+		return nil, nil, ErrTokenizerClosed
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.tokenizer == nil {
 		return nil, nil, ErrTokenizerClosed
 	}
 	cStr := C.CString(str)
@@ -427,7 +442,12 @@ func (t *Tokenizer) EncodeErr(str string, addSpecialTokens bool) ([]uint32, []st
 }
 
 func (t *Tokenizer) Encode(str string, addSpecialTokens bool) ([]uint32, []string) {
-	if t == nil || t.tokenizer == nil {
+	if t == nil {
+		return nil, nil
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.tokenizer == nil {
 		return nil, nil
 	}
 	cStr := C.CString(str)
@@ -497,7 +517,12 @@ func WithReturnOffsets() EncodeOption {
 }
 
 func (t *Tokenizer) EncodeWithOptionsErr(str string, addSpecialTokens bool, opts ...EncodeOption) (Encoding, error) {
-	if t == nil || t.tokenizer == nil {
+	if t == nil {
+		return Encoding{}, ErrTokenizerClosed
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.tokenizer == nil {
 		return Encoding{}, ErrTokenizerClosed
 	}
 	cStr := C.CString(str)
@@ -554,7 +579,12 @@ func (t *Tokenizer) EncodeWithOptionsErr(str string, addSpecialTokens bool, opts
 }
 
 func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ...EncodeOption) Encoding {
-	if t == nil || t.tokenizer == nil {
+	if t == nil {
+		return Encoding{}
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.tokenizer == nil {
 		return Encoding{}
 	}
 	cStr := C.CString(str)
@@ -605,7 +635,12 @@ func (t *Tokenizer) EncodeWithOptions(str string, addSpecialTokens bool, opts ..
 }
 
 func (t *Tokenizer) DecodeErr(tokenIDs []uint32, skipSpecialTokens bool) (string, error) {
-	if t == nil || t.tokenizer == nil {
+	if t == nil {
+		return "", ErrTokenizerClosed
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.tokenizer == nil {
 		return "", ErrTokenizerClosed
 	}
 	if len(tokenIDs) == 0 {
@@ -621,7 +656,12 @@ func (t *Tokenizer) DecodeErr(tokenIDs []uint32, skipSpecialTokens bool) (string
 }
 
 func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
-	if t == nil || t.tokenizer == nil {
+	if t == nil {
+		return ""
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.tokenizer == nil {
 		return ""
 	}
 	if len(tokenIDs) == 0 {
@@ -637,5 +677,10 @@ func (t *Tokenizer) Decode(tokenIDs []uint32, skipSpecialTokens bool) string {
 }
 
 func (t *Tokenizer) VocabSize() uint32 {
+	if t == nil {
+		return 0
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	return uint32(C.tokenizers_vocab_size(t.tokenizer))
 }
