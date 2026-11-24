@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::ptr;
 use std::collections::HashMap;
 use tokenizers::tokenizer::Tokenizer;
+use tokenizers::utils::parallelism::MaybeParallelIterator;
 use serde::{Deserialize, Serialize};
 use tiktoken_rs;
 
@@ -84,27 +85,32 @@ impl UnifiedTokenizer {
             UnifiedTokenizer::HuggingFace(tokenizer) => {
                 let encoding = tokenizer.encode(text, add_special_tokens)
                     .map_err(|e| format!("Encoding error: {}", e))?;
-                Ok(EncodingDetails {
-                    ids: encoding.get_ids().to_vec(),
-                    type_ids: Some(encoding.get_type_ids().to_vec()),
-                    tokens: Some(encoding.get_tokens().iter().map(|s| s.to_string()).collect()),
-                    special_tokens_mask: Some(encoding.get_special_tokens_mask().to_vec()),
-                    attention_mask: Some(encoding.get_attention_mask().to_vec()),
-                    offsets: Some(encoding.get_offsets().to_vec()),
-                })
+                Ok(EncodingDetails::from_huggingface(&encoding))
             }
             UnifiedTokenizer::Tiktoken(bpe, _vocab_size, special_tokens, _special_token_ids) => {
                 let special_tokens_refs = Self::get_special_tokens_refs(special_tokens, add_special_tokens);
                 let (tokens, _) = bpe.encode(text, &special_tokens_refs);
-                // Tiktoken doesn't provide the same level of detail as HuggingFace
-                Ok(EncodingDetails {
-                    ids: tokens,
-                    type_ids: None,
-                    tokens: None,
-                    special_tokens_mask: None,
-                    attention_mask: None,
-                    offsets: None,
-                })
+                Ok(EncodingDetails::from_ids(tokens))
+            }
+        }
+    }
+
+    /// Encodes every text, in parallel unless `TOKENIZERS_PARALLELISM` disables it.
+    /// Results are in input order. HuggingFace batch padding applies, so with the
+    /// `BatchLongest` padding strategy every encoding is padded to the longest one.
+    pub fn encode_batch_with_details(&self, texts: &[&str], add_special_tokens: bool) -> Result<Vec<EncodingDetails>, Box<dyn std::error::Error>> {
+        match self {
+            UnifiedTokenizer::HuggingFace(tokenizer) => {
+                let encodings = tokenizer.encode_batch(texts.to_vec(), add_special_tokens)
+                    .map_err(|e| format!("Encoding error: {}", e))?;
+                Ok(encodings.iter().map(EncodingDetails::from_huggingface).collect())
+            }
+            UnifiedTokenizer::Tiktoken(bpe, _vocab_size, special_tokens, _special_token_ids) => {
+                let special_tokens_refs = Self::get_special_tokens_refs(special_tokens, add_special_tokens);
+                Ok(texts
+                    .into_maybe_par_iter()
+                    .map(|text| EncodingDetails::from_ids(bpe.encode(text, &special_tokens_refs).0))
+                    .collect())
             }
         }
     }
@@ -188,6 +194,31 @@ pub struct EncodingDetails {
     pub special_tokens_mask: Option<Vec<u32>>,
     pub attention_mask: Option<Vec<u32>>,
     pub offsets: Option<Vec<(usize, usize)>>,
+}
+
+impl EncodingDetails {
+    fn from_huggingface(encoding: &tokenizers::Encoding) -> Self {
+        EncodingDetails {
+            ids: encoding.get_ids().to_vec(),
+            type_ids: Some(encoding.get_type_ids().to_vec()),
+            tokens: Some(encoding.get_tokens().iter().map(|s| s.to_string()).collect()),
+            special_tokens_mask: Some(encoding.get_special_tokens_mask().to_vec()),
+            attention_mask: Some(encoding.get_attention_mask().to_vec()),
+            offsets: Some(encoding.get_offsets().to_vec()),
+        }
+    }
+
+    // Tiktoken doesn't provide the same level of detail as HuggingFace
+    fn from_ids(ids: Vec<u32>) -> Self {
+        EncodingDetails {
+            ids,
+            type_ids: None,
+            tokens: None,
+            special_tokens_mask: None,
+            attention_mask: None,
+            offsets: None,
+        }
+    }
 }
 
 #[repr(C)]
@@ -452,7 +483,12 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
             offsets: ptr::null_mut()
         }
     };
-    
+
+    details_to_buffer(encoding_details, options)
+}
+
+/// Hands the encoding's vectors over to the caller, who frees them with `tokenizers_free_buffer`.
+fn details_to_buffer(encoding_details: EncodingDetails, options: &tokenizers_encode_options) -> tokenizers_buffer {
     let mut vec_ids = encoding_details.ids;
     vec_ids.shrink_to_fit();
     let ids = vec_ids.as_mut_ptr();
@@ -517,6 +553,79 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
     }
 
     tokenizers_buffer { ids, type_ids, special_tokens_mask, attention_mask, tokens, offsets, len }
+}
+
+#[repr(C)]
+pub struct tokenizers_batch_buffer {
+    encodings: *mut tokenizers_buffer,
+    len: usize,
+}
+
+/// Encodes `count` texts in one call. `texts` holds the texts back to back and
+/// `text_lens[i]` is the byte length of text `i`, so texts are not NUL-terminated
+/// and may contain NUL bytes. On failure, or when `count` is 0, `encodings` is null.
+/// Free the result with `tokenizers_free_batch_buffer`.
+#[no_mangle]
+pub extern "C" fn tokenizers_encode_batch(
+    ptr: *mut libc::c_void,
+    texts: *const u8,
+    text_lens: *const usize,
+    count: usize,
+    options: &tokenizers_encode_options,
+) -> tokenizers_batch_buffer {
+    let failed = tokenizers_batch_buffer { encodings: ptr::null_mut(), len: 0 };
+    if ptr.is_null() || text_lens.is_null() || count == 0 {
+        return failed;
+    }
+
+    let unified_tokenizer = unsafe {
+        match ptr.cast::<UnifiedTokenizer>().as_ref() {
+            Some(tokenizer) => tokenizer,
+            None => return failed,
+        }
+    };
+
+    let lens = unsafe { std::slice::from_raw_parts(text_lens, count) };
+    let total = match lens.iter().try_fold(0usize, |acc, &l| acc.checked_add(l)) {
+        Some(total) => total,
+        None => return failed,
+    };
+    let data: &[u8] = if total == 0 {
+        &[]
+    } else if texts.is_null() {
+        return failed;
+    } else {
+        unsafe { std::slice::from_raw_parts(texts, total) }
+    };
+
+    // Same lossy UTF-8 handling as tokenizers_encode.
+    let mut start = 0;
+    let messages: Vec<std::borrow::Cow<str>> = lens
+        .iter()
+        .map(|&l| {
+            let message = String::from_utf8_lossy(&data[start..start + l]);
+            start += l;
+            message
+        })
+        .collect();
+    let message_refs: Vec<&str> = messages.iter().map(|m| m.as_ref()).collect();
+
+    let all_details = match std::panic::catch_unwind(|| {
+        unified_tokenizer.encode_batch_with_details(&message_refs, options.add_special_tokens)
+    }) {
+        Ok(Ok(details)) => details,
+        Ok(Err(_)) | Err(_) => return failed,
+    };
+
+    let mut encodings: Vec<tokenizers_buffer> = all_details
+        .into_iter()
+        .map(|details| details_to_buffer(details, options))
+        .collect();
+    encodings.shrink_to_fit();
+    let len = encodings.len();
+    let encodings_ptr = encodings.as_mut_ptr();
+    std::mem::forget(encodings);
+    tokenizers_batch_buffer { encodings: encodings_ptr, len }
 }
 
 #[no_mangle]
@@ -601,6 +710,17 @@ pub extern "C" fn tokenizers_free_buffer(buf: tokenizers_buffer) {
                 drop(std::ffi::CString::from_raw(s.cast::<libc::c_char>()));
             }   
         }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn tokenizers_free_batch_buffer(buf: tokenizers_batch_buffer) {
+    if buf.encodings.is_null() {
+        return;
+    }
+    let encodings = unsafe { Vec::from_raw_parts(buf.encodings, buf.len, buf.len) };
+    for encoding in encodings {
+        tokenizers_free_buffer(encoding);
     }
 }
 
@@ -997,9 +1117,79 @@ mod tests {
                 "Decoded text should NOT contain [BOS] when skip_special_tokens is true");
         assert!(!decoded_skip_special.contains("[EOS]"), 
                 "Decoded text should NOT contain [EOS] when skip_special_tokens is true");
-        assert_eq!(decoded_skip_special, "Hello, world!", 
+        assert_eq!(decoded_skip_special, "Hello, world!",
                 "Decoded text should only contain the regular tokens");
-        
+
+        Ok(())
+    }
+
+    fn assert_batch_matches_single(unified: &UnifiedTokenizer) -> Result<(), Box<dyn std::error::Error>> {
+        let texts = ["Hello, world!", "", "你好，世界！", "brown fox jumps over the lazy dog"];
+        for add_special_tokens in [false, true] {
+            let batch = unified.encode_batch_with_details(&texts, add_special_tokens)?;
+            assert_eq!(batch.len(), texts.len());
+            for (text, got) in texts.iter().zip(batch) {
+                let want = unified.encode_with_details(text, add_special_tokens)?;
+                assert_eq!(got.ids, want.ids);
+                assert_eq!(got.type_ids, want.type_ids);
+                assert_eq!(got.tokens, want.tokens);
+                assert_eq!(got.special_tokens_mask, want.special_tokens_mask);
+                assert_eq!(got.attention_mask, want.attention_mask);
+                assert_eq!(got.offsets, want.offsets);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_encode_batch_matches_single() -> Result<(), Box<dyn std::error::Error>> {
+        let tokenizer = Tokenizer::from_file(test_data_path("bert-base-uncased.json"))
+            .map_err(|e| format!("Failed to load tokenizer: {}", e))?;
+        assert_batch_matches_single(&UnifiedTokenizer::HuggingFace(tokenizer))?;
+        assert_batch_matches_single(&create_test_llama_tokenizer()?)
+    }
+
+    #[test]
+    fn test_ffi_encode_batch() -> Result<(), Box<dyn std::error::Error>> {
+        let tokenizer = Tokenizer::from_file(test_data_path("bert-base-uncased.json"))
+            .map_err(|e| format!("Failed to load tokenizer: {}", e))?;
+        let ptr: *mut libc::c_void = Box::into_raw(Box::new(UnifiedTokenizer::HuggingFace(tokenizer))).cast();
+        let options = tokenizers_encode_options {
+            add_special_tokens: true,
+            return_type_ids: true,
+            return_tokens: true,
+            return_special_tokens_mask: true,
+            return_attention_mask: true,
+            return_offsets: true,
+        };
+
+        let texts = b"hello world";
+        let lens = [5usize, 0, 6];
+        let batch = tokenizers_encode_batch(ptr, texts.as_ptr(), lens.as_ptr(), lens.len(), &options);
+        assert!(!batch.encodings.is_null());
+        assert_eq!(batch.len, 3);
+        let encodings = unsafe { std::slice::from_raw_parts(batch.encodings, batch.len) };
+        // [CLS] hello [SEP], [CLS] [SEP], [CLS] world [SEP]
+        assert_eq!(encodings.iter().map(|e| e.len).collect::<Vec<_>>(), vec![3, 2, 3]);
+        tokenizers_free_batch_buffer(batch);
+
+        let all_empty = [0usize, 0];
+        let batch = tokenizers_encode_batch(ptr, ptr::null(), all_empty.as_ptr(), all_empty.len(), &options);
+        assert_eq!(batch.len, 2);
+        tokenizers_free_batch_buffer(batch);
+
+        let no_texts = tokenizers_encode_batch(ptr, texts.as_ptr(), lens.as_ptr(), 0, &options);
+        assert!(no_texts.encodings.is_null());
+        let null_lens = tokenizers_encode_batch(ptr, texts.as_ptr(), ptr::null(), 1, &options);
+        assert!(null_lens.encodings.is_null());
+        let null_texts = tokenizers_encode_batch(ptr, ptr::null(), lens.as_ptr(), lens.len(), &options);
+        assert!(null_texts.encodings.is_null());
+        let overflow = [usize::MAX, 1];
+        let overflowed = tokenizers_encode_batch(ptr, texts.as_ptr(), overflow.as_ptr(), overflow.len(), &options);
+        assert!(overflowed.encodings.is_null());
+        tokenizers_free_batch_buffer(overflowed);
+
+        tokenizers_free_tokenizer(ptr);
         Ok(())
     }
 }

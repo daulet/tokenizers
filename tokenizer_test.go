@@ -2,10 +2,12 @@ package tokenizers_test
 
 import (
 	_ "embed"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/daulet/tokenizers"
@@ -801,5 +803,221 @@ func validateCache(t *testing.T, dir string, modelID string) {
 		if _, err := os.Stat(path); err != nil {
 			t.Errorf("expected file %s to exist in cache for model %s", file, modelID)
 		}
+	}
+}
+
+func batchTestTexts(t testing.TB) []string {
+	longText, err := os.ReadFile("./test/data/long_text.txt")
+	require.NoError(t, err)
+	texts := []string{
+		"brown fox jumps over the lazy dog",
+		"",
+		"a",
+		" ",
+		"Hello, world! 你好，世界！",
+		"naïve café déjà vu",
+		"emoji 🦊🐶 and symbols ∑∂√",
+		"\xff\xfe invalid utf-8",
+		"[CLS] already has special tokens [SEP]",
+		"",
+		string(longText[:4000]),
+	}
+	// Many single words, the way span models tokenize word by word.
+	texts = append(texts, strings.Fields(string(longText))[:2000]...)
+	return texts
+}
+
+func TestEncodeBatchMatchesEncodeWithOptions(t *testing.T) {
+	bert, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer bert.Close()
+
+	bertConfig, err := os.ReadFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	truncated, err := tokenizers.FromBytesWithTruncation(bertConfig, 5, tokenizers.TruncationDirectionLeft)
+	require.NoError(t, err)
+	defer truncated.Close()
+
+	tiktoken, err := tokenizers.FromTiktoken(
+		"./test/data/meta-llama-3-8b-instruct/tiktoken.model",
+		"./test/data/meta-llama-3-8b-instruct/tokenizer_config.json",
+		`(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+`,
+	)
+	require.NoError(t, err)
+	defer tiktoken.Close()
+
+	texts := batchTestTexts(t)
+	tokenizerCases := []struct {
+		name string
+		tk   *tokenizers.Tokenizer
+	}{
+		{name: "huggingface", tk: bert},
+		{name: "huggingface with truncation", tk: truncated},
+		{name: "tiktoken", tk: tiktoken},
+	}
+	optionCases := []struct {
+		name string
+		opts []tokenizers.EncodeOption
+	}{
+		{name: "no options"},
+		{name: "all attributes", opts: []tokenizers.EncodeOption{tokenizers.WithReturnAllAttributes()}},
+		{name: "offsets and tokens", opts: []tokenizers.EncodeOption{tokenizers.WithReturnOffsets(), tokenizers.WithReturnTokens()}},
+	}
+	for _, tc := range tokenizerCases {
+		for _, oc := range optionCases {
+			for _, addSpecial := range []bool{false, true} {
+				name := fmt.Sprintf("%s/%s/addSpecial=%v", tc.name, oc.name, addSpecial)
+				t.Run(name, func(t *testing.T) {
+					got, err := tc.tk.EncodeBatchErr(texts, addSpecial, oc.opts...)
+					require.NoError(t, err)
+					require.Len(t, got, len(texts))
+					for i, text := range texts {
+						want, err := tc.tk.EncodeWithOptionsErr(text, addSpecial, oc.opts...)
+						require.NoError(t, err)
+						require.Equal(t, want, got[i], "text %d: %q", i, text)
+					}
+					assert.Equal(t, got, tc.tk.EncodeBatch(texts, addSpecial, oc.opts...))
+				})
+			}
+		}
+	}
+}
+
+func TestEncodeBatchEmpty(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer tk.Close()
+
+	for _, texts := range [][]string{nil, {}} {
+		got, err := tk.EncodeBatchErr(texts, true)
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	}
+
+	got, err := tk.EncodeBatchErr([]string{"", ""}, false, tokenizers.WithReturnAllAttributes())
+	require.NoError(t, err)
+	assert.Equal(t, []tokenizers.Encoding{{}, {}}, got)
+}
+
+func TestEncodeBatchWithBatchPadding(t *testing.T) {
+	// This tokenizer pads with the BatchLongest strategy to a multiple of 8.
+	tk, err := tokenizers.FromFile("./test/data/all-minilm-l6-v2.json")
+	require.NoError(t, err)
+	defer tk.Close()
+
+	short := "this short sentence"
+	long := "this sentence is quite a bit longer than the short one, so it needs more tokens"
+	got, err := tk.EncodeBatchErr([]string{short, long}, true, tokenizers.WithReturnAllAttributes())
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+
+	wantLong := tk.EncodeWithOptions(long, true, tokenizers.WithReturnAllAttributes())
+	assert.Equal(t, wantLong, got[1])
+
+	// The short text is padded to the length of the long one.
+	wantShort := tk.EncodeWithOptions(short, true, tokenizers.WithReturnAllAttributes())
+	require.Len(t, got[0].IDs, len(wantLong.IDs))
+	unpadded := 0
+	for _, m := range wantShort.AttentionMask {
+		unpadded += int(m)
+	}
+	assert.Equal(t, wantShort.IDs[:unpadded], got[0].IDs[:unpadded])
+	for i := unpadded; i < len(got[0].IDs); i++ {
+		assert.Equal(t, "[PAD]", got[0].Tokens[i])
+		assert.Equal(t, uint32(0), got[0].AttentionMask[i])
+	}
+}
+
+func TestEncodeBatchKeepsNULBytes(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer tk.Close()
+
+	// EncodeWithOptions passes a C string, so it stops at the NUL and sees only "brown".
+	// The BERT normalizer drops the NUL and the batch sees "brownfox".
+	got, err := tk.EncodeBatchErr([]string{"brown\x00fox"}, false, tokenizers.WithReturnTokens())
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, []string{"brown", "##fo", "##x"}, got[0].Tokens)
+}
+
+func TestEncodeBatchOnClosedTokenizer(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	require.NoError(t, tk.Close())
+
+	_, err = tk.EncodeBatchErr([]string{"brown fox"}, false)
+	assert.ErrorIs(t, err, tokenizers.ErrTokenizerClosed)
+	assert.Nil(t, tk.EncodeBatch([]string{"brown fox"}, false))
+
+	var nilTk *tokenizers.Tokenizer
+	_, err = nilTk.EncodeBatchErr([]string{"brown fox"}, false)
+	assert.ErrorIs(t, err, tokenizers.ErrTokenizerClosed)
+}
+
+func TestEncodeBatchConcurrent(t *testing.T) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(t, err)
+	defer tk.Close()
+
+	texts := batchTestTexts(t)
+	want, err := tk.EncodeBatchErr(texts, true, tokenizers.WithReturnAllAttributes())
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 5; i++ {
+				got, err := tk.EncodeBatchErr(texts, true, tokenizers.WithReturnAllAttributes())
+				if !assert.NoError(t, err) || !assert.Equal(t, want, got) {
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func BenchmarkEncodeBatch(b *testing.B) {
+	tk, err := tokenizers.FromFile("./test/data/bert-base-uncased.json")
+	require.NoError(b, err)
+	defer tk.Close()
+
+	longText, err := os.ReadFile("./test/data/long_text.txt")
+	require.NoError(b, err)
+	words := strings.Fields(string(longText))
+
+	shortTexts := make([]string, 8192)
+	for i := range shortTexts {
+		shortTexts[i] = words[i%len(words)]
+	}
+	longTexts := make([]string, 64)
+	for i := range longTexts {
+		start := (i * 997) % (len(longText) - 2000)
+		longTexts[i] = string(longText[start : start+2000])
+	}
+
+	inputs := []struct {
+		name  string
+		texts []string
+	}{
+		{name: "8192-words", texts: shortTexts},
+		{name: "64-texts-of-2000-bytes", texts: longTexts},
+	}
+	for _, in := range inputs {
+		b.Run(in.name+"/loop", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				for _, text := range in.texts {
+					tk.EncodeWithOptions(text, true, tokenizers.WithReturnOffsets())
+				}
+			}
+		})
+		b.Run(in.name+"/batch", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				tk.EncodeBatch(in.texts, true, tokenizers.WithReturnOffsets())
+			}
+		})
 	}
 }

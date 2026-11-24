@@ -25,6 +25,11 @@ struct tokenizers_buffer {
   size_t len;
 };
 
+struct tokenizers_batch_buffer {
+  struct tokenizers_buffer *encodings;
+  size_t len;
+};
+
 const char *tokenizers_version();
 
 void *tokenizers_from_bytes(const uint8_t *config, uint32_t len, const struct tokenizers_options *options, char **error);
@@ -37,6 +42,8 @@ void *tokenizers_from_tiktoken(const char *model_file, const char *config_file, 
 
 struct tokenizers_buffer tokenizers_encode(void *ptr, const char *message, const struct tokenizers_encode_options *options);
 
+struct tokenizers_batch_buffer tokenizers_encode_batch(void *ptr, const uint8_t *texts, const size_t *text_lens, size_t count, const struct tokenizers_encode_options *options);
+
 char *tokenizers_decode(void *ptr, const uint32_t *ids, uint32_t len, bool skip_special_tokens);
 
 uint32_t tokenizers_vocab_size(void *ptr);
@@ -44,5 +51,7 @@ uint32_t tokenizers_vocab_size(void *ptr);
 void tokenizers_free_tokenizer(void *ptr);
 
 void tokenizers_free_buffer(struct tokenizers_buffer buffer);
+
+void tokenizers_free_batch_buffer(struct tokenizers_batch_buffer buffer);
 
 void tokenizers_free_string(char *string);

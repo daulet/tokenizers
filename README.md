@@ -98,6 +98,18 @@ fmt.Println(encodingResponse.Offsets)
 // [[0 5] [6 9] [10 15] [16 20] [21 24] [25 29] [30 33]]
 ```
 
+Encode many texts with one call:
+
+```go
+encodings := tk.EncodeBatch([]string{"brown fox", "lazy dog"}, false, tokenizers.WithReturnOffsets())
+fmt.Println(encodings[0].IDs, encodings[0].Offsets)
+// [2829 4419] [[0 5] [6 9]]
+fmt.Println(encodings[1].IDs, encodings[1].Offsets)
+// [13971 3899] [[0 4] [5 8]]
+```
+
+`EncodeBatch` takes the same options as `EncodeWithOptions` and returns one `Encoding` per text, in input order. It crosses into Rust once for the whole batch and encodes the texts in parallel, which is much faster than calling `EncodeWithOptions` in a loop when you have many short texts. Set `TOKENIZERS_PARALLELISM=false` to encode on a single thread. Two differences from a loop: a tokenizer configured with `BatchLongest` padding pads every encoding to the longest one in the batch, and a text containing a NUL byte is encoded in full instead of being cut at the NUL. Use `EncodeBatchErr` for explicit error handling.
+
 ## Benchmarks
 
 ### Tiktoken vs HuggingFace
