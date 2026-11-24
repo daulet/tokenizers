@@ -453,18 +453,14 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
         }
     };
     
-    let mut vec_ids = encoding_details.ids;
-    vec_ids.shrink_to_fit();
-    let ids = vec_ids.as_mut_ptr();
+    let vec_ids = encoding_details.ids;
     let len = vec_ids.len();
-    std::mem::forget(vec_ids);
+    let ids = into_raw_slice(vec_ids);
 
     let mut type_ids: *mut u32 = ptr::null_mut();
     if options.return_type_ids {
-        if let Some(mut vec_type_ids) = encoding_details.type_ids {
-            vec_type_ids.shrink_to_fit();
-            type_ids = vec_type_ids.as_mut_ptr();
-            std::mem::forget(vec_type_ids);
+        if let Some(vec_type_ids) = encoding_details.type_ids {
+            type_ids = into_raw_slice(vec_type_ids);
         }
     }
 
@@ -478,27 +474,21 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
                     .unwrap_or_else(|_| std::ffi::CString::new("").expect("empty string is a valid C string"));
                 vec_tokens.push(c_string.into_raw());
             }
-            vec_tokens.shrink_to_fit();
-            tokens = vec_tokens.as_mut_ptr();
-            std::mem::forget(vec_tokens);
+            tokens = into_raw_slice(vec_tokens);
         }
     }
 
     let mut special_tokens_mask: *mut u32 = ptr::null_mut();
     if options.return_special_tokens_mask {
-        if let Some(mut vec_special_tokens_mask) = encoding_details.special_tokens_mask {
-            vec_special_tokens_mask.shrink_to_fit();
-            special_tokens_mask = vec_special_tokens_mask.as_mut_ptr();
-            std::mem::forget(vec_special_tokens_mask);
+        if let Some(vec_special_tokens_mask) = encoding_details.special_tokens_mask {
+            special_tokens_mask = into_raw_slice(vec_special_tokens_mask);
         }
     }
 
     let mut attention_mask: *mut u32 = ptr::null_mut();
     if options.return_attention_mask {
-        if let Some(mut vec_attention_mask) = encoding_details.attention_mask {
-            vec_attention_mask.shrink_to_fit();
-            attention_mask = vec_attention_mask.as_mut_ptr();
-            std::mem::forget(vec_attention_mask);
+        if let Some(vec_attention_mask) = encoding_details.attention_mask {
+            attention_mask = into_raw_slice(vec_attention_mask);
         }
     }
 
@@ -510,9 +500,7 @@ pub extern "C" fn tokenizers_encode(ptr: *mut libc::c_void, message: *const libc
                 vec_offsets.push(i.0);
                 vec_offsets.push(i.1);
             }
-            vec_offsets.shrink_to_fit();
-            offsets = vec_offsets.as_mut_ptr();
-            std::mem::forget(vec_offsets);
+            offsets = into_raw_slice(vec_offsets);
         }
     }
 
@@ -567,39 +555,38 @@ pub extern "C" fn tokenizers_free_tokenizer(ptr: *mut ::libc::c_void) {
     }
 }
 
+/// Hands `v` to C. Free the result with `free_raw_slice` and the same length.
+fn into_raw_slice<T>(v: Vec<T>) -> *mut T {
+    Box::into_raw(v.into_boxed_slice()).cast()
+}
+
+/// Frees a pointer returned by `into_raw_slice` and returns its elements.
+unsafe fn free_raw_slice<T>(ptr: *mut T, len: usize) -> Vec<T> {
+    Box::from_raw(ptr::slice_from_raw_parts_mut(ptr, len)).into_vec()
+}
+
 #[no_mangle]
 pub extern "C" fn tokenizers_free_buffer(buf: tokenizers_buffer) {
-    if !buf.ids.is_null() {
-        unsafe {
-            Vec::from_raw_parts(buf.ids, buf.len, buf.len);
+    unsafe {
+        if !buf.ids.is_null() {
+            free_raw_slice(buf.ids, buf.len);
         }
-    }
-    if !buf.type_ids.is_null() {
-        unsafe {
-            Vec::from_raw_parts(buf.type_ids, buf.len, buf.len);
+        if !buf.type_ids.is_null() {
+            free_raw_slice(buf.type_ids, buf.len);
         }
-    }
-    if !buf.special_tokens_mask.is_null() {
-        unsafe {
-            Vec::from_raw_parts(buf.special_tokens_mask, buf.len, buf.len);
+        if !buf.special_tokens_mask.is_null() {
+            free_raw_slice(buf.special_tokens_mask, buf.len);
         }
-    }
-    if !buf.attention_mask.is_null() {
-        unsafe {
-            Vec::from_raw_parts(buf.attention_mask, buf.len, buf.len);
+        if !buf.attention_mask.is_null() {
+            free_raw_slice(buf.attention_mask, buf.len);
         }
-    }
-    if !buf.offsets.is_null() {
-        unsafe {
-            Vec::from_raw_parts(buf.offsets, buf.len*2, buf.len*2);
+        if !buf.offsets.is_null() {
+            free_raw_slice(buf.offsets, buf.len * 2);
         }
-    }
-    if !buf.tokens.is_null() {
-        unsafe {
-            let strings = Vec::from_raw_parts(buf.tokens, buf.len, buf.len);
-            for s in strings {
-                drop(std::ffi::CString::from_raw(s.cast::<libc::c_char>()));
-            }   
+        if !buf.tokens.is_null() {
+            for s in free_raw_slice(buf.tokens, buf.len) {
+                drop(std::ffi::CString::from_raw(s));
+            }
         }
     }
 }
@@ -696,6 +683,60 @@ mod tests {
         let vocab_size = unified.vocab_size();
         assert!(vocab_size > 0);
         
+        Ok(())
+    }
+
+    #[test]
+    fn test_ffi_encode_and_free_buffer() -> Result<(), Box<dyn std::error::Error>> {
+        let tokenizer = Tokenizer::from_file(test_data_path("bert-base-uncased.json"))
+            .map_err(|e| format!("Failed to load tokenizer: {}", e))?;
+        let tokenizers = [
+            UnifiedTokenizer::HuggingFace(tokenizer),
+            create_test_llama_tokenizer()?,
+        ];
+        let options = tokenizers_encode_options {
+            add_special_tokens: true,
+            return_type_ids: true,
+            return_tokens: true,
+            return_special_tokens_mask: true,
+            return_attention_mask: true,
+            return_offsets: true,
+        };
+        let text = std::ffi::CString::new("brown fox jumps over the lazy dog")?;
+        for unified in &tokenizers {
+            let expected = unified.encode_with_details(text.to_str()?, true)?;
+            let ptr = (unified as *const UnifiedTokenizer).cast_mut().cast();
+            let buf = tokenizers_encode(ptr, text.as_ptr(), &options);
+            assert_eq!(buf.len, expected.ids.len());
+            let ids = unsafe { std::slice::from_raw_parts(buf.ids, buf.len) };
+            assert_eq!(ids, expected.ids.as_slice());
+            if let Some(tokens) = &expected.tokens {
+                let got: Vec<String> = unsafe { std::slice::from_raw_parts(buf.tokens, buf.len) }
+                    .iter()
+                    .map(|&t| unsafe { CStr::from_ptr(t) }.to_string_lossy().into_owned())
+                    .collect();
+                assert_eq!(&got, tokens);
+            }
+            for (got, want) in [
+                (buf.type_ids, &expected.type_ids),
+                (buf.special_tokens_mask, &expected.special_tokens_mask),
+                (buf.attention_mask, &expected.attention_mask),
+            ] {
+                match want {
+                    Some(want) => {
+                        let got = unsafe { std::slice::from_raw_parts(got, buf.len) };
+                        assert_eq!(got, want.as_slice());
+                    }
+                    None => assert!(got.is_null()),
+                }
+            }
+            if let Some(offsets) = &expected.offsets {
+                let flat = unsafe { std::slice::from_raw_parts(buf.offsets, buf.len * 2) };
+                let pairs: Vec<(usize, usize)> = flat.chunks(2).map(|c| (c[0], c[1])).collect();
+                assert_eq!(&pairs, offsets);
+            }
+            tokenizers_free_buffer(buf);
+        }
         Ok(())
     }
 
